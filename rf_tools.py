@@ -181,7 +181,7 @@ def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_ang
     return phi_cap_anglecalc, theta_cap_anglecalc, psi_low_anglecalc, theta_low_anglecalc
 
 
-def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2],  meantype='db_mean', b_onboard=False, measfilename='path'):
+def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6],  meantype='db_mean', b_onboard=False, measfilename='path', measfile_path=None):
     """
     :param analyze_tx:
     :param txpos_tuning:
@@ -194,6 +194,8 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2],  meantype='d
 
     if b_onboard is True:
         measdata_filename = measfilename
+    elif measfile_path is not None:
+        measdata_filename = measfile_path
     else:
         measdata_filename = hc_tools.select_file()
 

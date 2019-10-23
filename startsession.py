@@ -14,11 +14,13 @@ x0 = [300, 500, 0]
 xn = [3000, 1150, 600]
 dxdyda = [50, 50, 50]
 
-sdr_type = 'AirSpy'  # 'AirSpy' / 'NooElec'
+measfile_rel_path = path.relpath('Measurements/first_try.txt')
 
-rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
+sdr_type = 'NooElec'  # 'AirSpy' / 'NooElec'
 
-# rf_tools.analyze_measdata_from_file('lin')
+#rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
+
+rf_tools.analyze_measdata_from_file(analyze_tx=[1, 2], measfile_path=measfile_rel_path)
 
 # Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # NooElec
 Rf = rf.RfEar(sdr_type, 434.0e6, 3e4)  # AirSpy
