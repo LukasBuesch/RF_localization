@@ -6,6 +6,7 @@ import matplotlib.mlab as mlab
 from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
+import gantry_control
 
 
 
@@ -14,25 +15,26 @@ t.time()
 
 def waypoint_file_generating():
 
-    x0 = [1293, 1347, 0]
-    xn = [1543, 1347, 0]
-    dxdyda = [250, 0, 0]
+    x0 = [1393, 1147, 0]
+    xn = [1693, 1147, 0]
+    dxdyda = [100, 0, 0]
 
     wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...')
 
     rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
 
+def start_field_measurement():
+    gc = gantry_control.GantryControl([0, 3100, 0, 1600, 0, 600], use_gui=True, sdr_type='NooElec') # TODO: chack differrences to use_gui=False
+    gc.start_field_measurement_file_select()
 
 def analyze_measdata():
-    wp_filename_rel_path = path.relpath('Aktuell/wp_list_2018_08_31_grid_meas_d50d50d50.txt')
-
     measfile_rel_path = path.relpath('Measurements/first_try.txt')
 
     rf_tools.analyze_measdata_from_file(analyze_tx=[1, 2], measfile_path=measfile_rel_path)
 
 def check_antennas(show_power_spectrum=False):
-    sdr_type = 'NooElec'  # 'AirSpy' / 'NooElec'
-    Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # NooElec
+    sdr_type = 'NooElec'
+    Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # for NooElec
 
 
     plt.ion()
@@ -61,6 +63,8 @@ if __name__ == '__main__':
 
     waypoint_file_generating()
 
-    #analyze_measdata()
+    #start_field_measurement()
 
-    #check_antennas(True)
+    # analyze_measdata()
+
+    # check_antennas(True)
