@@ -1,0 +1,6 @@
+Way point list 
+### begin grid settings
+1293 1347 0 1543 1347 0 250 0 0 2
+### begin wp_list
+0 1293.0 1347.0 0.0 2.0
+1 1543.0 1347.0 0.0 2.0

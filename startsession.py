@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 from os import path
 import time as t
+import hippocampus_toolbox as hc_tools
+
+
+
 
 t.time()
 
@@ -14,6 +18,7 @@ def waypoint_file_generating():
     xn = [1543, 1347, 0]
     dxdyda = [250, 0, 0]
 
+    wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...')
 
     rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
 
@@ -54,7 +59,7 @@ def check_antennas(show_power_spectrum=False):
 
 if __name__ == '__main__':
 
-    #waypoint_file_generating()
+    waypoint_file_generating()
 
     #analyze_measdata()
 

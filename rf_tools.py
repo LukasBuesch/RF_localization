@@ -56,7 +56,7 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
     wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
     wp_mat = np.append(wp_mat, wp_time, axis=1)
 
-    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    #wp_filename = hc_tools.save_as_dialog('Save way point list as...')
     with open(wp_filename, 'w') as wpfile:
         wpfile.write('Way point list \n')
         wpfile.write('### begin grid settings\n')
