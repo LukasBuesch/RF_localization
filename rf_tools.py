@@ -587,7 +587,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     ax.set_zlabel('rss_var [dB]')
                     ax.set_title('RSS field variance for TX# ' + str(itx + 1))
 
-            plot_fig4 = True
+            plot_fig4 = True  #plots the errorbar
             if plot_fig4:
                 fig = plt.figure(4)
                 for itx in analyze_tx:

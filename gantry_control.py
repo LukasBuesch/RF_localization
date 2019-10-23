@@ -793,8 +793,8 @@ class GantryControl(object):
 
         self.__oRf = rf.RfEar(self.__sdr_type, center_freq, freqspan)
 
-        # freq6tx = [434.325e6, 433.89e6, 434.475e6, 434.025e6, 434.62e6, 434.175e6]  # NooElec
-        freq6tx = [434.12e6, 433.96e6, 434.17e6, 434.02e6, 434.22e6, 434.07e6]  # AirSpy
+        freq6tx = [434.325e6, 433.89e6, 434.475e6, 434.025e6, 434.62e6, 434.175e6]  # NooElec
+        #freq6tx = [434.12e6, 433.96e6, 434.17e6, 434.02e6, 434.22e6, 434.07e6]  # AirSpy
 
         tx_6pos = [[770, 432, 0],
                    [1794, 437, 0],
@@ -803,7 +803,12 @@ class GantryControl(object):
                    [1789, 1237, 0],
                    [774, 1227, 0]]
 
-        self.__oRf.set_txparams(freq6tx, tx_6pos)
+        freq2tx = [434.325e6, 434.62e6]
+
+        tx_2pos = [[1293, 1347, 0],
+                   [1543, 1347, 0]]
+
+        self.__oRf.set_txparams(freq2tx, tx_2pos)
         return True
 
 
