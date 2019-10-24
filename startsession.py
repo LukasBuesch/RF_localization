@@ -7,19 +7,23 @@ from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
 import gantry_control
+import estimator as esti
 
 
 
 
 t.time()
 
-def waypoint_file_generating():
+def waypoint_file_generating(filename=None):
 
     x0 = [1020, 1147, 0]
     xn = [1693, 1147, 0]
     dxdyda = [100, 0, 0]
 
-    wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...')
+    if filename is not None:
+        wp_filename_rel_path = path.relpath('Waypoints/'+ filename + '.txt')
+    else:
+        wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...')
 
     rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
 
@@ -30,8 +34,11 @@ def start_field_measurement():
     gc.set_new_max_speed_z(1000)
     gc.start_field_measurement_file_select()
 
-def analyze_measdata():
-    measfile_rel_path = path.relpath('Measurements/first_try.txt')
+def analyze_measdata(filename=None):
+    if filename is not None:
+        measfile_rel_path = path.relpath('Measurements/'+ filename + '.txt')
+    else:
+        measfile_rel_path =  hc_tools.select_file()
 
     rf_tools.analyze_measdata_from_file(analyze_tx=[1, 2], measfile_path=measfile_rel_path)
 
@@ -60,14 +67,44 @@ def check_antennas(show_power_spectrum=False):
     else:
         Rf.plot_txrss_live()
 
+def position_estimation():
+
+    EKF = esti.ExtendedKalmanFilter()
+    EKF_plotter = esti.EKF_Plot(EKF.get_tx_pos(), EKF.get_tx_num())
+
+
+    # set EKF init position
+
+    x_log = np.array([[500], [500]])
+    EKF.init_x_0(x_log)
+
+    ### Start EKF-loop ###
+    tracking = True
+    while tracking:
+        try:
+            # x_est[:, 0] = x_log[:, -1]
+            EKF.ekf_prediction()
+            EKF.ekf_update()
+
+            x_log = np.append(x_log, EKF.get_x_est(), axis=1)
+
+            # add new x_est to plot
+            EKF_plotter.add_data_to_plot([EKF.get_x_est()[0, -1], EKF.get_x_est()[1, -1]])
+            EKF_plotter.update_plot()
+
+        except KeyboardInterrupt:
+            print ('Localization interrupted by user')
+            tracking = False
+
+
 
 
 if __name__ == '__main__':
 
-    # waypoint_file_generating()
+    waypoint_file_generating('Waypointlist')  # if no input choose file function activ
 
     start_field_measurement()
 
-    # analyze_measdata()
+    analyze_measdata('second_try')  # if no input choose file function activ
 
     # check_antennas(False)
