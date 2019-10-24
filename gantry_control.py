@@ -687,9 +687,9 @@ class GantryControl(object):
             # plt.ion()
             ax = fig.add_subplot(111, projection='3d')
             ax.plot(wp_data_mat[:, 1], wp_data_mat[:, 2], wp_data_mat[:, 3], 'b.-')
-            ax.set_xlabel('Distance in mm (belt-drive)')
-            ax.set_ylabel('Distance in mm (spindle-drive)')
-            ax.set_zlabel('Distance in mm (rod-drive)')
+            ax.set_xlabel('X Axis (Distance in mm)')
+            ax.set_ylabel('Y Axis (Distance in mm)')
+            ax.set_zlabel('Z Axis (Distance in mm)')
             ax.set_xlim(-100, 3100)
             ax.set_ylim(-100, 1800)
             ax.set_zlim(-10, 1000)
@@ -736,7 +736,7 @@ class GantryControl(object):
                             print('START Measurement for ' + str(meastime) + 's')
                             print('Measuring at Way-Point #' + str(numwp+1) + ' of ' + str(totnumofwp) + ' way-points')
                             ax.scatter(new_target_wp[0], new_target_wp[1], zs=new_target_wp[2], c='gold')
-                            temp_meas_title = 'Way-Point #' + str(numwp) + ' of ' + str(totnumofwp) + ' way-points ' +'- Time left: %d:%02d:%02d' % (t_left_h, t_left_m, t_left_s)
+                            temp_meas_title = 'Way-Point #' + str(numwp+1) + ' of ' + str(totnumofwp) + ' way-points ' +'- Time left: %d:%02d:%02d' % (t_left_h, t_left_m, t_left_s)
                             ax.set_title(temp_meas_title, loc='left')
                             # dataseq = self.__oCal.take_measurement(meastime)
                             dataseq = self.__oRf.take_measurement(meastime)
@@ -802,10 +802,10 @@ class GantryControl(object):
                    [1789, 1237, 0],
                    [774, 1227, 0]]
 
-        freq2tx = [434.325e6, 434.62e6] # FIXME: change if using not only 2 tx
+        freq2tx = [434.325e6, 434.62e6]  # FIXME: change if using not only 2 tx
 
-        tx_2pos = [[1293, 1347, 0],
-                   [1543, 1347, 0]]
+        tx_2pos = [[1120, 1374, 0],   # FIXME: change this if changing tx position
+                   [1370, 1374, 0]]
 
         self.__oRf.set_txparams(freq2tx, tx_2pos)
         return True

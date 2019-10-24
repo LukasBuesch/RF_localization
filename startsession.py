@@ -15,7 +15,7 @@ t.time()
 
 def waypoint_file_generating():
 
-    x0 = [1393, 1147, 0]
+    x0 = [1020, 1147, 0]
     xn = [1693, 1147, 0]
     dxdyda = [100, 0, 0]
 
@@ -25,6 +25,9 @@ def waypoint_file_generating():
 
 def start_field_measurement():
     gc = gantry_control.GantryControl([0, 3100, 0, 1600, 0, 600], use_gui=True, sdr_type='NooElec') # TODO: chack differrences to use_gui=False
+    gc.set_new_max_speed_x(1000)
+    gc.set_new_max_speed_y(2000)
+    gc.set_new_max_speed_z(1000)
     gc.start_field_measurement_file_select()
 
 def analyze_measdata():
@@ -61,10 +64,10 @@ def check_antennas(show_power_spectrum=False):
 
 if __name__ == '__main__':
 
-    waypoint_file_generating()
+    # waypoint_file_generating()
 
-    #start_field_measurement()
+    start_field_measurement()
 
     # analyze_measdata()
 
-    # check_antennas(True)
+    # check_antennas(False)
