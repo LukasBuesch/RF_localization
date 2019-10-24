@@ -40,7 +40,8 @@ def analyze_measdata(filename=None):
     else:
         measfile_rel_path =  hc_tools.select_file()
 
-    rf_tools.analyze_measdata_from_file(analyze_tx=[1, 2], measfile_path=measfile_rel_path)
+    lambda_t, gamma_t = rf_tools.analyze_measdata_from_file(analyze_tx=[1, 2], measfile_path=measfile_rel_path)
+    return lambda_t, gamma_t
 
 def check_antennas(show_power_spectrum=False):
     sdr_type = 'NooElec'
@@ -106,5 +107,7 @@ if __name__ == '__main__':
     start_field_measurement()
 
     analyze_measdata('second_try')  # if no input choose file function activ
+
+    position_estimation()
 
     # check_antennas(False)
