@@ -7,7 +7,7 @@ from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
 import gantry_control
-import estimator as esti
+import estimator_err_comp as est_err
 
 
 
@@ -69,34 +69,7 @@ def check_antennas(show_power_spectrum=False):
         Rf.plot_txrss_live()
 
 def position_estimation():
-
-    EKF = esti.ExtendedKalmanFilter()
-    EKF_plotter = esti.EKF_Plot(EKF.get_tx_pos(), EKF.get_tx_num())
-
-
-    # set EKF init position
-
-    x_log = np.array([[500], [500]])
-    EKF.init_x_0(x_log)
-
-    ### Start EKF-loop ###
-    tracking = True
-    while tracking:
-        try:
-            # x_est[:, 0] = x_log[:, -1]
-            EKF.ekf_prediction()
-            EKF.ekf_update()
-
-            x_log = np.append(x_log, EKF.get_x_est(), axis=1)
-
-            # add new x_est to plot
-            EKF_plotter.add_data_to_plot([EKF.get_x_est()[0, -1], EKF.get_x_est()[1, -1]])
-            EKF_plotter.update_plot()
-
-        except KeyboardInterrupt:
-            print ('Localization interrupted by user')
-            tracking = False
-
+    est_err.main()
 
 
 
