@@ -141,6 +141,9 @@ def analyze_measdata_from_file(analyze_tx=[1, 2, 3, 4, 5, 6],  meantype='db_mean
         measfile.close()
 
         plotdata_matrix = np.asarray(plotdata_mat_lis)
+        print('plotdata_matrix = \n')
+        print plotdata_matrix
+
 
     return plotdata_matrix
 

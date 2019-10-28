@@ -197,7 +197,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
     elif measfile_path is not None:
         measdata_filename = measfile_path
     else:
-        measdata_filename = hc_tools.select_file()
+        measdata_filename = hc_tools.select_file(functionname='anaylze_measdata_from_file')
 
     with open(measdata_filename, 'r') as measfile:
         load_description = True
