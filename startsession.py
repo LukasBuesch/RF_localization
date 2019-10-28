@@ -23,7 +23,7 @@ def waypoint_file_generating(filename=None):
     if filename is not None:
         wp_filename_rel_path = path.relpath('Waypoints/'+ filename + '.txt')
     else:
-        wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...')
+        wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...(waypoint_file_generating)')
 
     rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
 
@@ -38,7 +38,7 @@ def analyze_measdata(filename=None):
     if filename is not None:
         measfile_rel_path = path.relpath('Measurements/'+ filename + '.txt')
     else:
-        measfile_rel_path =  hc_tools.select_file()
+        measfile_rel_path =  hc_tools.select_file(functionname='analyze_measdata')
 
     lambda_t, gamma_t = rf_tools.analyze_measdata_from_file(analyze_tx=[1, 2], measfile_path=measfile_rel_path)
     return lambda_t, gamma_t
@@ -68,19 +68,24 @@ def check_antennas(show_power_spectrum=False):
     else:
         Rf.plot_txrss_live()
 
-def position_estimation():
-    est_err.main()
+def position_estimation(lambda_t=None, gamma_t=None, filename=None):
+    if filename is not None:
+        measfile_rel_path = path.relpath('Measurements/' + filename + '.txt')
+    else:
+        measfile_rel_path = hc_tools.select_file(functionname='position estimation')
+
+    est_err.main(measfile_rel_path, lambda_t, gamma_t)
 
 
 
 if __name__ == '__main__':
 
-    waypoint_file_generating('Waypointlist')  # if no input choose file function activ
+    # waypoint_file_generating('Waypointlist')  # if no input choose file function activ
 
-    start_field_measurement()
+    # start_field_measurement()
 
-    analyze_measdata('second_try')  # if no input choose file function activ
+    lambda_t, gamma_t = analyze_measdata('second_try')  # if no input choose file function activ
 
-    position_estimation()
+    position_estimation(lambda_t, gamma_t, filename='second_try')
 
     # check_antennas(False)

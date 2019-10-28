@@ -25,10 +25,10 @@ def select_directory():
 
 
 # ======== Select a file for opening:
-def select_file(myFormats=[('Text file', '*.txt')]):
+def select_file(functionname='', myFormats=[('Text file', '*.txt')]):
     root = Tkinter.Tk()
     root.withdraw()  # get rid of the tk-app window in the background
-    filename = tkFileDialog.askopenfilename(parent=root, filetypes=myFormats, title='Choose a file')
+    filename = tkFileDialog.askopenfilename(parent=root, filetypes=myFormats, title='Choose a file for '+ functionname)
     if filename is not None:
         print ('You chose ' + filename)
 

@@ -1,5 +1,5 @@
 """
-Die Simulation einer sendenden Antenne und einer mobillen empfangenden Antenne,
+Die Simulation einer sendenden Antenne und einer mobilen empfangenden Antenne,
 welche sich zueinander verdrehen (und verschieben, welches aber durch
 Verdehungen abgebildet werden kann).
 """
@@ -326,7 +326,7 @@ def ekf_update(z_meas, tx_pos, lambda_t, gamma_t, x_est, p_mat, txh, zmauv, hmau
 """
 Ausfuehrendes Programm:
 """
-def main():
+def main(measfile_path, lambda_t=None, gamma_t=None):
 
     np.random.seed(12896)
 
@@ -358,14 +358,22 @@ def main():
     # z_mauv = np.array([[0.0], [0.64278760968], [0.76604444311]])
 
     '''Bestimmung der Messfrequenzen'''
-    tx_freq = [4.3400e+08, 4.341e+08, 4.3430e+08, 4.3445e+08, 4.3465e+08, 4.3390e+08]
+    tx_freq = [434.325e6, 434.62e6]  # FIXME: change if using not only 2 tx
+
+    # tx_freq = [4.3400e+08, 4.341e+08, 4.3430e+08, 4.3445e+08, 4.3465e+08, 4.3390e+08]
     tx_num = len(tx_freq)
 
     '''Postion(en) der stationaeren Antenne(n)'''
-    tx_pos = [np.array([[770], [432]]), np.array([[1794], [437]]), np.array([[2814], [447]]),
-              np.array([[2824], [1232]]), np.array([[1789], [1237]]), np.array([[774], [1227]])]
-    tx_h = np.array([600, 600, 600, 600, 600, 600])
-    # tx_h = np.array([0, 0, 0, 0, 0, 0])
+    tx_pos = [[1120, 1374],  # FIXME: change this if changing tx position
+               [1370, 1374]]
+    print tx_pos
+    tx_h = np.array([0, 0])
+
+    # tx_pos = [np.array([[770], [432]]), np.array([[1794], [437]]), np.array([[2814], [447]]),
+    #           np.array([[2824], [1232]]), np.array([[1789], [1237]]), np.array([[774], [1227]])]
+    # print tx_pos
+    # tx_h = np.array([600, 600, 600, 600, 600, 600])
+
     '''
     Old simulation values
     tx_pos = [np.array([[-100.9], [-100.9]]), np.array([[500.9], [-100.9]]), np.array([[1100.9], [-100.9]]),
@@ -380,9 +388,9 @@ def main():
 
     '''Kennwerte der stationaeren Antenne(n)'''
 
-
-    lambda_t = np.array([-0.0108059, -0.0102862, -0.0095051, -0.0086124, -0.0086001, -0.0118771])
-    gamma_t = np.array([-2.465, -4.7777, -7.358, -6.9102, -8.412, -3.2815])
+    if lambda_t is None:
+        lambda_t = np.array([-0.0108059, -0.0102862, -0.0095051, -0.0086124, -0.0086001, -0.0118771])
+        gamma_t = np.array([-2.465, -4.7777, -7.358, -6.9102, -8.412, -3.2815])
 
     tx_n = [antenna_n]*6  # Normal
 
@@ -427,7 +435,7 @@ def main():
     messung_benutzen = True
     if messung_benutzen:
         '''Laden der Messdatei'''
-        plotdata_mat = analyze_measdata_from_file(measfilename='wp_list_2018_08_10_grid_meas_d505025_measurement_h500.txt')
+        plotdata_mat = analyze_measdata_from_file(analyze_tx=[1, 2], measfilename=measfile_path)
 
     extra_plotting = False
     direct_terms = [0.0] * tx_num
@@ -465,6 +473,7 @@ def main():
             if not messung_benutzen:
                 # Eigentlich hier Winkel
                 rss[i] = h_rss_messungsemulator(x_n[k], h_mauv, tx_pos[i], tx_h[i], lambda_t[i], gamma_t[i], theta_cap_t[i], psi_low_t[i], theta_low_t[i], tx_n[i], rx_n[i], directivity_r, directivities_t[i])
+
             else:
                 rss[i] = plotdata_mat[wp_index[0][0], 3+i]
                 direct_terms[i] = np.log10(np.cos(psi_low_t[i])) + tx_n[i] * np.log10(np.cos(theta_cap_t[i])) + rx_n[i] * np.log10(np.cos(theta_cap_t[i] + theta_low_t[i]))
