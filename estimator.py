@@ -211,19 +211,8 @@ class ExtendedKalmanFilter(object):
 
         r_mat = r_sig ** 2
         return r_mat
-       #
-        """
-        #old model
-        # simple first try
-        if rss_noise_model >= -85:
-            r_sig = 10
-        elif rss_noise_model < -85:
-            r_sig = 100
 
-        r_mat = r_sig ** 2
-        return r_mat
-        
-        """
+
 
     def ekf_prediction(self):
         """ prediction """
@@ -275,8 +264,8 @@ class ExtendedKalmanFilter(object):
         return True
 
 
-"""
 
+'''
 EKF = ExtendedKalmanFilter()
 EKF_plotter = EKF_Plot(EKF.get_tx_pos(), EKF.get_tx_num())
 
@@ -303,5 +292,5 @@ while tracking:
     except KeyboardInterrupt:
         print ('Localization interrupted by user')
         tracking = False
+'''
 
-"""

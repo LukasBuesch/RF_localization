@@ -327,13 +327,13 @@ def ekf_update(z_meas, tx_pos, lambda_t, gamma_t, x_est, p_mat, txh, zmauv, hmau
 
 
 """
-Ausfuehrendes Programm:
+executive program
 """
 def main(measfile_path, lambda_t=None, gamma_t=None):
 
     np.random.seed(12896)
 
-    '''Konfiguration der Messpunkte'''
+    '''configuration of measurementpoints'''
     dist_messpunkte = 50.0
     start_messpunkte = np.array([[800.0], [700.0]])
     start_messpunkt = start_messpunkte
@@ -377,11 +377,6 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     # print tx_pos
     # tx_h = np.array([600, 600, 600, 600, 600, 600])
 
-    '''
-    Old simulation values
-    tx_pos = [np.array([[-100.9], [-100.9]]), np.array([[500.9], [-100.9]]), np.array([[1100.9], [-100.9]]),
-              np.array([[-100.9], [1100.9]]), np.array([[500.9], [1100.9]]), np.array([[1100.9], [1100.9]])]
-    '''
 
     '''Berechnung von n und D'''
     hpbw = 30.0  # 13.0
