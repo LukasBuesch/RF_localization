@@ -22,7 +22,7 @@ from scipy.special import lambertw
 # define classes
 class RfEar(object):
     """A simple class to compute PSD with a DVBT-dongle."""
-    def __init__(self, sdr_type, center_freq, freqspan=1e5):
+    def __init__(self, center_freq, sdr_type='NooElec', freqspan=1e5):
         """
         init-method
         :param center_freq: [Hz] Defines the center frequency where to listen (between 27MHz and 1.7GHz)
@@ -43,7 +43,7 @@ class RfEar(object):
                 print(freqRange)
 
             # apply settings
-            self.__sdr.setSampleRate(SOAPY_SDR_RX, 0, 2.048e6)  # todo test! initially 1e6 then 2.048e6 within sample AirSpy Program
+            self.__sdr.setSampleRate(SOAPY_SDR_RX, 0, 2.048e6)
             self.__sdr.setFrequency(SOAPY_SDR_RX, 0, center_freq)
             self.__sdr.setBandwidth(SOAPY_SDR_RX, 0, 1e6)
             self.__sdr.setGain(SOAPY_SDR_RX, 0, 20)
@@ -541,7 +541,7 @@ class RfEar(object):
 
                 # self.__sdr.setGain(SOAPY_SDR_RX, 0, (self.__sdr.getGain(SOAPY_SDR_RX, 0)+1))
 
-                # @todo annotations on the frequency peaks
+                # annotations on the frequency peaks
                 # if known_freqtx > 0:
                 #    #freq_den_max, pdb_den_max = self.get_max_rss_in_freqspan(known_freqtx, freqspan)
                 #    plt.annotate(r'$this is an annotation',
