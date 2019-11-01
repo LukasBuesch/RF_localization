@@ -7,7 +7,7 @@ from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
 import gantry_control
-import estimator_err_comp as est_err
+import estimator_err_comp_old_version as est_err
 
 
 
@@ -28,7 +28,7 @@ def waypoint_file_generating(filename=None):
     rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
 
 def start_field_measurement():
-    gc = gantry_control.GantryControl([0, 3100, 0, 1600, 0, 600], use_gui=True, sdr_type='NooElec') # TODO: chack differrences to use_gui=False
+    gc = gantry_control.GantryControl([0, 3100, 0, 1600, 0, 600], use_gui=True, sdr_type='NooElec') # TODO: check differrences to use_gui=False
     gc.set_new_max_speed_x(1000)
     gc.set_new_max_speed_y(2000)
     gc.set_new_max_speed_z(1000)
@@ -86,6 +86,6 @@ if __name__ == '__main__':
 
     lambda_t, gamma_t = analyze_measdata('second_try')  # if no input choose file function activ
 
-    position_estimation(lambda_t, gamma_t, filename='second_try')
+    position_estimation(lambda_t, gamma_t, filename='second_try') # if no input choose file function activ
 
     # check_antennas(False)
