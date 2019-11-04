@@ -23,7 +23,7 @@ def read_measfile_header(analyze_tx=[1, 2, 3, 4, 5, 6],
     :param measfile_path: path to measfile
     :return:
     """
-
+# TODO: give values direct to class EKF -> give created object to this function if possible
     analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
     print analyze_tx
 
@@ -128,6 +128,8 @@ def read_measfile_header(analyze_tx=[1, 2, 3, 4, 5, 6],
 
         data_shape = [data_shape_file[1], data_shape_file[0], data_shape_file[2]]  # data_shape: n_x, n_y, n_z
         plotdata_mat = np.asarray(plotdata_mat_lis)
+
+        return data_shape, plotdata_mat
 
 
 class Extended_Kalman_Filter(object):
