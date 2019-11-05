@@ -5,7 +5,7 @@ import time as t
 import serial_control as sc
 import hippocampus_toolbox as hc_tools
 import rf_tools
-import estimator
+import estimator_old_version
 import sys
 
 
@@ -428,7 +428,7 @@ class GantryControl(object):
         b_ekf = True
         if b_ekf is True:
             # init EKF
-            EKF = estimator.ExtendedKalmanFilter(model_type)
+            EKF = estimator_old_version.ExtendedKalmanFilter(model_type)
             import estimator_plot_tools
             EKF_plotter = estimator_plot_tools.EKF_Plot(EKF.get_tx_pos(), model_type)
 

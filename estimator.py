@@ -1,96 +1,203 @@
 import numpy as np
-import rf
+import matplotlib.pyplot as plt
+import estimator_err_comp_plot_tools as ept
 import rf_tools
+import rf
 
-""" map/track the position of the mobile node using an EKF
+"""
+map/track the position of the mobile node using an EKF
 
     Keyword arguments:
-    :param x0 -- initial estimate of the mobile node position
-    :param h_func_select:
-    :param bplot -- Activate/Deactivate liveplotting the data (True/False)
-    :param blog -- activate data logging to file (default: False)
-    :param bprintdata - activate data print to console(default: False)
+    :param 
+    :param 
+    :param
+    :param 
+    :param 
+"""
+
+
+def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=None):
     """
+    :param: object: existing object of EKF to write values in
+    :param analyze_tx: Number of used tx
+    :param measfile_path: path to measfile
+    :return:
+    """
+# TODO: give values direct to class EKF -> give created object to this function if possible
+    analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
+    print analyze_tx
+
+    if measfile_path is not None:
+        measdata_filename = measfile_path
+    else:
+        measdata_filename = hc_tools.select_file(functionname='read_measfile_header')
+
+    with open(measdata_filename, 'r') as measfile:
+        load_description = True
+        load_grid_settings = False
+        load_measdata = False
+        meas_data_append_list = []
+
+        plotdata_mat_lis = []
+
+        totnumwp = 0
+        measured_wp_list = []
+
+        for i, line in enumerate(measfile):
+
+            if line == '### begin grid settings\n':
+                # print('griddata found')
+                load_description = False
+                load_grid_settings = True
+                load_measdata = False
+                continue
+            elif line == '### begin measurement data\n':
+                load_description = False
+                load_grid_settings = False
+                load_measdata = True
+                # print('Measurement data found')
+                continue
+            if load_description:
+                # print('file description')
+                print(line)
+
+            if load_grid_settings and not load_measdata:
+                # print(line)
+
+                grid_settings = map(float, line[:-2].split(' '))
+                x0 = [grid_settings[0], grid_settings[1], grid_settings[2]]
+                xn = [grid_settings[3], grid_settings[4], grid_settings[5]]
+                grid_dxdyda = [grid_settings[6], grid_settings[7], grid_settings[8]]
+                timemeas = grid_settings[9]
+
+                data_shape_file = []
+                for i in range(3):  # range(num_dof)
+                    try:
+                        shapei = int((xn[i] - x0[i]) / grid_dxdyda[i] + 1)
+                    except ZeroDivisionError:
+                        shapei = 1
+                    data_shape_file.append(shapei)
+                print('data shape  = ' + str(data_shape_file))
+
+                numtx = int(grid_settings[10])
+                txdata = grid_settings[11:(11 + 4 * numtx)]  # urspruenglich [(2+numtx):(2+numtx+3*numtx)]
+
+                # read tx positions
+                txpos_list = []
+                for itx in range(numtx):
+                    itxpos = txdata[3 * itx:3 * itx + 3]  # urspruenglich [2*itx:2*itx+2]
+                    txpos_list.append(itxpos)
+                txpos = np.asarray(txpos_list)
+
+                # read tx frequencies
+                freqtx_list = []
+                for itx in range(numtx):
+                    freqtx_list.append(txdata[3 * numtx + itx])  # urspruenglich (txdata[2*numtx+itx])
+                freqtx = np.asarray(freqtx_list)
+
+                # print out
+                print('filename = ' + measdata_filename)
+                print('num_of_gridpoints = ' + str(data_shape_file[0] * data_shape_file[1]))
+                print('x0 = ' + str(x0))
+                print('xn = ' + str(xn))
+                print('grid_shape = ' + str(data_shape_file))
+                print('steps_dxdyda = ' + str(grid_dxdyda))
+                print('tx_pos = ' + str(txpos_list))
+                print('freqtx = ' + str(freqtx))
+
+                startx = x0[0]
+                endx = xn[0]
+                stepx = data_shape_file[0]
+
+                starty = x0[1]
+                endy = xn[1]
+                stepy = data_shape_file[1]
+
+                startz = x0[2]
+                endz = xn[2]
+                stepz = data_shape_file[2]
+
+                xpos = np.linspace(startx, endx, stepx)
+                ypos = np.linspace(starty, endy, stepy)
+                zpos = np.linspace(startz, endz, stepz)
+
+                wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)
+
+            if load_measdata and not load_grid_settings:
+                pass
+        '''
+        write data into object
+        '''
+        object.set_tx_freq(freqtx)
+        object.set_tx_pos(txpos_list)
 
 
-class ExtendedKalmanFilter(object):
-    def __init__(self, tx_pos, set_model_type='log', x0=[1000, 1000]):
+        data_shape = [data_shape_file[1], data_shape_file[0], data_shape_file[2]]  # data_shape: n_x, n_y, n_z
+        plotdata_mat = np.asarray(plotdata_mat_lis)
+
+        return data_shape, plotdata_mat
+
+
+class Extended_Kalman_Filter(object):
+    def __init__(self, set_model_type='log', cal_param_from_file=None):
+        """
+        Initialize EKF object
+
+        :param set_model_type: lin or log
+        :param cal_param_from_file: get lambda and gamma from file or use default
+        :param
+        :param
+        """
         self.__model_type = set_model_type
+        self.__cal_param_from_file = cal_param_from_file
         self.__tx_freq = []
         self.__tx_pos = []
         self.__tx_alpha = []
         self.__tx_gamma = []
 
-        self.__tx_freq = [4.3400e+08,   4.341e+08,   4.3430e+08,   4.3445e+08,   4.3465e+08,   4.3390e+08]
 
-        self.__tx_pos = tx_pos
 
+
+    '''
+    parameter access
+    '''
+    def set_cal_params(self):
         if self.__model_type == 'log':
             """ parameter for log model """
 
-            b_file_param = True
-            if b_file_param:
-                (self.__tx_alpha, self.__tx_gamma) = rf_tools.get_cal_param_from_file(param_filename='cal_param.txt')
+            if self.__cal_param_from_file is not None: # TODO: is there a write cal_param_file function ?
+                (self.__tx_alpha, self.__tx_gamma) = rf_tools.get_cal_param_from_file(param_filename=cal_param_from_file) # TODO: check function -> give in cal_param_from_file the path
                 print('Take alpha/gamma from cal-file')
                 print('alpha = ' + str(self.__tx_alpha))
                 print('gamma = ' + str(self.__tx_gamma))
 
             else:
-                self.__tx_alpha = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441, 0.013228415946149144,
-                             0.010212580857184312, 0.010286057191882235]
-                self.__tx_gamma = [-0.49471304043015696, -1.2482393190627841, -0.17291318936462172, -0.61587988305564456,
-                             0.99831151034040444, 0.85711994311461936]
+                self.__tx_alpha = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441,
+                                   0.013228415946149144,  # TODO: set new params as default
+                                   0.010212580857184312, 0.010286057191882235]
+                self.__tx_gamma = [-0.49471304043015696, -1.2482393190627841, -0.17291318936462172,
+                                   -0.61587988305564456,
+                                   0.99831151034040444, 0.85711994311461936]
 
         elif self.__model_type == 'lin':
             """ parameter for linear model """
-            #self.__tx_alpha = [-0.020559673796613238, -0.027175147727451984, -0.023111068055053488, -0.024454023111282586,
+            # self.__tx_alpha = [-0.020559673796613238, -0.027175147727451984, -0.023111068055053488, -0.024454023111282586,
             #             -0.024854213762496295, -0.021694731996127509]
-            #self.__tx_gamma = [-42.189573853301056, -37.651222316888159, -40.60648965954146, -41.523883513559113,
+            # self.__tx_gamma = [-42.189573853301056, -37.651222316888159, -40.60648965954146, -41.523883513559113,
             #             -42.342411649995938, -42.349468350676268]
 
-        """ 
-        Start RFEar as Measurement System
-        """
-        self.__oMeasSys = rf.RfEar(434.2e6)
-        self.__oMeasSys.set_txparams(self.__tx_freq, self.__tx_pos)
-        self.__oMeasSys.set_calparams(self.__tx_alpha, self.__tx_gamma)
+    def set_tx_freq(self, tx_freq):
+        self.__tx_freq = tx_freq
+        return True
 
-        self.__tx_num = len(self.__tx_freq)
+    def set_tx_pos(self,tx_pos):
+        self.__tx_pos = tx_pos
+        return True
 
-        """ initialize tracking setup """
-        print(str(self.__tx_alpha))
-        print(str(self.__tx_gamma))
-        print(str(self.__tx_pos))
-        self.__tx_param = []
-        for itx in range(self.__tx_num):
-            self.__tx_param.append([self.__tx_pos[itx], self.__tx_alpha[itx], self.__tx_gamma[itx]])
 
-        """ initialize EKF """
-        self.__x_est_0 = np.array([[x0[0]], [x0[1]]]).reshape((2, 1))
-        self.__x_est = self.__x_est_0
-        # standard deviations
-        self.__sig_x1 = 500
-        self.__sig_x2 = 500
-        self.__p_mat_0 = np.array(np.diag([self.__sig_x1 ** 2, self.__sig_x2 ** 2]))
-        self.__p_mat = self.__p_mat_0
 
-        # process noise
-        self.__sig_w1 = 100
-        self.__sig_w2 = 100
-        self.__q_mat = np.array(np.diag([self.__sig_w1 ** 2, self.__sig_w2 ** 2]))
 
-        # measurement noise
-        # --> see measurement_covariance_model
-        # self.__sig_r = 10
-        # self.__r_mat = self.__sig_r ** 2
-
-        # initial values and system dynamic (=eye)
-        self.__i_mat = np.eye(2)
-
-        self.__z_meas = np.zeros(self.__tx_num)
-        self.__y_est = np.zeros(self.__tx_num)
-        self.__r_dist = np.zeros(self.__tx_num)
-
+    # Old Block
     def set_x_0(self, x0):
         self.__x_est = x0
         return True
@@ -127,170 +234,11 @@ class ExtendedKalmanFilter(object):
     def get_tx_gamma(self):
         return self.__tx_gamma
 
-    # measurement function
-    def h_rss(self, x, tx_param, model_type):
-        tx_pos = tx_param[0]  # position of the transceiver
-        alpha = tx_param[1]
-        gamma = tx_param[2]
 
-        # r = sqrt((x - x_tx) ^ 2 + (y - y_tx) ^ 2)S
-        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
-        if model_type == 'log':
-            y_rss = -20 * np.log10(r_dist) - alpha * r_dist - gamma
-        elif model_type == 'lin':
-            y_rss = alpha * r_dist + gamma  # rss in db
-
-        return y_rss, r_dist
-
-        # Save on Raspberry
-
-    # jacobian of the measurement function
-    def h_rss_jacobian(self, x, tx_param, model_type):
-        tx_pos = tx_param[0]  # position of the transceiver
-        alpha = tx_param[1]
-        # gamma = tx_param[2]  # not used here
-
-        R_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
-
-        if model_type == 'log':
-            # dh / dx1
-            h_rss_jac_x1 = -20 * (x[0] - tx_pos[0]) / (np.log(10) * R_dist ** 2) - alpha * (x[0] - tx_pos[0]) / R_dist
-            # dh / dx2
-            h_rss_jac_x2 = -20 * (x[1] - tx_pos[1]) / (np.log(10) * R_dist ** 2) - alpha * (x[1] - tx_pos[1]) / R_dist
-        elif model_type == 'lin':
-            # dh /dx1
-            h_rss_jac_x1 = alpha * (x[0] - tx_pos[0]) / R_dist
-            # dh /dx2
-            h_rss_jac_x2 = alpha * (x[1] - tx_pos[1]) / R_dist
-
-        h_rss_jac = np.array([[h_rss_jac_x1], [h_rss_jac_x2]])
-
-        return h_rss_jac.reshape((2, 1))
-
-    def save_to_txt(self):
-
-        Position = np.matrix('0 0; 0 0')
-        Position[0, 0] = self.__x_est[0];
-        Position[0, 1] = self.__x_est[1];
-        f_EKF = open("/home/pi/src/RF_Localization/EKF.txt", "w")
-        f_EKF.write(
-            str(Position[0, 0]) + " " + str(Position[0, 1]) + " " + str(self.__p_mat[0, 0]) + " " + str(
-                self.__p_mat[0, 1]) + " " + str(self.__p_mat[1, 0]) + " " + str(self.__p_mat[1, 1]))
-        f_EKF.close
-        return True
-
-    def measurement_covariance_model(self, rss_noise_model, r_dist, itx):
-        """
-        estimate measurement noise based on the received signal strength
-        :param rss: measured signal strength
-        :return: r_mat -- measurement covariance matrix 
-        """
-
-        ekf_param = [6.5411, 7.5723, 9.5922, 11.8720, 21.6396, 53.6692, 52.0241]
-        #if r_dist <= 120 or r_dist >= 1900:
-        #        r_sig = 100
-        #
-        #         print('r_dist = ' + str(r_dist))
-        #rss_max_lim = [-42, -42, -42, -42, -42, -42]*0
-        if -35 < rss_noise_model or r_dist >= 1900:
-            r_sig = 100
-            #print('Meas_Cov_Model: itx = ' + str(itx) + ' r_sig set to ' + str(r_sig))
-
-        else:
-            if rss_noise_model >= -55:
-               r_sig = ekf_param[0]
-            elif rss_noise_model < -55:
-                r_sig = ekf_param[1]
-            elif rss_noise_model < -65:
-                 r_sig = ekf_param[2]
-            elif rss_noise_model < -75:
-                r_sig = ekf_param[3]
-            elif rss_noise_model < -80:
-                r_sig = ekf_param[4]
+class measurement_simulator(object):
+    pass
 
 
-        r_mat = r_sig ** 2
-        return r_mat
-
-
-
-    def ekf_prediction(self):
-        """ prediction """
-        self.__x_est = self.__x_est  # + np.random.randn(2, 1) * 1  # = I * x_est
-        self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat
-        return True
-
-
-
-    def ekf_update(self,rss_low_lim=-120):
-        """ innovation """
-
-        freq_peaks, rss = self.__oMeasSys.get_rss_peaks()
-        # get new measurement
-        self.__z_meas = rss
-
-        """ if no valid measurement signal is received, reset ekf i.e. boat outside water"""
-        if np.max(rss) < rss_low_lim:
-            self.reset_ekf()
-            print('reset_ekf'+str(np.max(rss)))
-            print('rss'+str(rss))
-            return True
-
-        # iterate through all tx-rss-values
-        for itx in range(self.__tx_num):
-            # estimate measurement from x_est
-            self.__y_est[itx], self.__r_dist[itx] = self.h_rss(self.__x_est, self.__tx_param[itx], model_type=self.__model_type)
-            y_tild = self.__z_meas[itx] - self.__y_est[itx]
-
-            # estimate measurement noise based on
-            r_mat = self.measurement_covariance_model(self.__z_meas[itx], self.__r_dist[itx], itx)
-
-            # calc K-gain
-            h_jac_mat = self.h_rss_jacobian(self.__x_est, self.__tx_param[itx], model_type=self.__model_type)
-            s_mat = np.dot(h_jac_mat.transpose(), np.dot(self.__p_mat, h_jac_mat)) + r_mat  # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, h_jac_mat / s_mat)  # 1/s_scal since s_mat is dim = 1x1
-
-            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat, h_jac_mat.transpose())) * self.__p_mat  # = (I-KH)*P
-        return True
-
-    def check_valid_position_estimate(self,x_field_begin=[-500 ,-500], x_field_end=[3700, 2600]):
-        if x_field_begin[0] > self.__x_est[0] or x_field_end[0] < self.__x_est[0]:
-            self.reset_ekf()
-            #print('EKF: Position estimate out of range --> reset EKF')
-        elif x_field_begin[1] > self.__x_est[1] or x_field_end[1] < self.__x_est[1]:
-            self.reset_ekf()
-            #print('EKF: Position estimate out of range --> reset EKF')
-        return True
-
-
-
-'''
-EKF = ExtendedKalmanFilter()
-EKF_plotter = EKF_Plot(EKF.get_tx_pos(), EKF.get_tx_num())
-
-
-# set EKF init position
-
-x_log = np.array([[500], [500]])
-EKF.init_x_0(x_log)
-
-### Start EKF-loop ###
-tracking = True
-while tracking:
-    try:
-        # x_est[:, 0] = x_log[:, -1]
-        EKF.ekf_prediction()
-        EKF.ekf_update()
-
-        x_log = np.append(x_log, EKF.get_x_est(), axis=1)
-
-        # add new x_est to plot
-        EKF_plotter.add_data_to_plot([EKF.get_x_est()[0, -1], EKF.get_x_est()[1, -1]])
-        EKF_plotter.update_plot()
-
-    except KeyboardInterrupt:
-        print ('Localization interrupted by user')
-        tracking = False
-'''
-
+def main(measfile_rel_path=None):
+    EKF = Extended_Kalman_Filter(cal_param_from_file=None)  # enter cal param filename here
+    read_measfile_header(object=EKF, analyze_tx=[1, 2], measfile_path=measfile_rel_path)
