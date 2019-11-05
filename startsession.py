@@ -46,7 +46,7 @@ def analyze_measdata(filename=None):
 
 def check_antennas(show_power_spectrum=False):
     sdr_type = 'NooElec'
-    Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # for NooElec
+    Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # for NooElec stick
 
     plt.ion()
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
     # start_field_measurement()
 
-    lambda_t, gamma_t = analyze_measdata('second_try')  # if no input choose file function active
+    # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input choose file function active
 
     position_estimation(filename='second_try')  # if no input choose file function active
 

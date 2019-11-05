@@ -7,12 +7,14 @@ from scipy.special import lambertw
 import socket
 
 import hippocampus_toolbox as hc_tools
+
 """
 independent methods related to the gantry
 """
 
 
-def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 0], timemeas=12.0, show_plot=False):
+def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 0], timemeas=12.0,
+                 show_plot=False):
     """
     :param wp_filename:
     :param x0: [x0,y0] - start position of the grid
@@ -24,7 +26,7 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
     steps = []
     for i in range(3):  # range(num_dof)
         try:
-            stepsi = (xn[i]-x0[i])/grid_dxdyda[i]+1
+            stepsi = (xn[i] - x0[i]) / grid_dxdyda[i] + 1
         except ZeroDivisionError:
             stepsi = 1
         steps.append(stepsi)
@@ -48,15 +50,15 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
     zpos = np.linspace(startz, endz, stepz)
 
     wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
-    wp_vecx = np.reshape(wp_matx, (len(xpos)*len(ypos)*len(zpos), 1))
-    wp_vecy = np.reshape(wp_maty, (len(ypos)*len(zpos)*len(xpos), 1))
-    wp_vecz = np.reshape(wp_matz, (len(zpos)*len(xpos)*len(ypos), 1))
-    wp_time = np.ones((len(xpos)*len(ypos)*len(zpos), 1)) * timemeas
+    wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
+    wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
+    wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
+    wp_time = np.ones((len(xpos) * len(ypos) * len(zpos), 1)) * timemeas
 
     wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
     wp_mat = np.append(wp_mat, wp_time, axis=1)
 
-    #wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
     with open(wp_filename, 'w') as wpfile:
         wpfile.write('Way point list \n')
         wpfile.write('### begin grid settings\n')
@@ -68,7 +70,9 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
 
         wpfile.write('### begin wp_list\n')
         for i in range(wp_mat.shape[0]):
-            wpfile.write(str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' '  + str(wp_mat[i, 3]) + '\n')
+            wpfile.write(
+                str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' ' + str(
+                    wp_mat[i, 3]) + '\n')
         wpfile.close()
     if show_plot:
         fig = plt.figure()
@@ -111,7 +115,7 @@ def read_data_from_wp_list_file(filename):
                 grid_dxdyda = [grid_settings[6], grid_settings[7], grid_settings[8]]
                 timemeas = grid_settings[9]
 
-                data_shape = [xn[0]/grid_dxdyda[0]+1, xn[1]/grid_dxdyda[1]+1, xn[2]/grid_dxdyda[2]+1]
+                data_shape = [xn[0] / grid_dxdyda[0] + 1, xn[1] / grid_dxdyda[1] + 1, xn[2] / grid_dxdyda[2] + 1]
                 print('wp-grid_shape = ' + str(data_shape))
 
             if load_wplist and not load_grid_settings:
@@ -149,9 +153,9 @@ def write_measfile_header(ofile, file_description, x0, xn, grid_dxdyda, timemeas
 
 # Vektor wird auf Ebene projeziert und Winkel mit main-Vektor gebildet
 def get_angle_v_on_plane(v_x, v_1main, v_2):
-    v_x_proj = np.dot(v_x.T, v_2)[0][0]*v_2 + np.dot(v_x.T, v_1main)[0][0]*v_1main
+    v_x_proj = np.dot(v_x.T, v_2)[0][0] * v_2 + np.dot(v_x.T, v_1main)[0][0] * v_1main
     if np.linalg.norm(v_x_proj) == 0:
-        angle_x = np.pi*0.5
+        angle_x = np.pi * 0.5
     elif (np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(v_1main))) > 1:
         angle_x = np.arccos((np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(
             v_1main))) - 1e-10)  # -1e-10, da PC gerne etwas mehr als 1 ausrechnet und daher arccos nicht funktioniert.
@@ -164,24 +168,29 @@ def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_ang
     dh_anglecalc = h_mauv_anglecalc - h_tx_anglecalc
     r_anglecalc = x_current_anglecalc - tx_pos_anglecalc
     r_abs_anglecalc = np.linalg.norm(r_anglecalc)
-    phi_cap_anglecalc = np.arccos(r_anglecalc[0][0]/r_abs_anglecalc)
+    phi_cap_anglecalc = np.arccos(r_anglecalc[0][0] / r_abs_anglecalc)
     if r_anglecalc[1][0] <= 0.0:
-        phi_cap_anglecalc = 2*np.pi - phi_cap_anglecalc
+        phi_cap_anglecalc = 2 * np.pi - phi_cap_anglecalc
     theta_cap_anglecalc = np.arctan(dh_anglecalc / r_abs_anglecalc)
     S_G_R_anglecalc = np.array([[np.cos(phi_cap_anglecalc), -np.sin(phi_cap_anglecalc), 0.0],
-                      [np.sin(phi_cap_anglecalc), np.cos(phi_cap_anglecalc), 0.0],
-                      [0.0, 0.0, 1.0]]).T
+                                [np.sin(phi_cap_anglecalc), np.cos(phi_cap_anglecalc), 0.0],
+                                [0.0, 0.0, 1.0]]).T
     # Transformationsmatrix um z & phi --- [0]=x_R.T, [1]=y_R.T, [2]=z_R.T
-    S_G_Rt_anglecalc = np.array([[np.cos(phi_cap_anglecalc) * np.cos(theta_cap_anglecalc), -np.sin(phi_cap_anglecalc), -np.cos(phi_cap_anglecalc) * np.sin(theta_cap_anglecalc)],
-                       [np.sin(phi_cap_anglecalc) * np.cos(theta_cap_anglecalc), np.cos(phi_cap_anglecalc), -np.sin(phi_cap_anglecalc) * np.sin(theta_cap_anglecalc)],
-                       [np.sin(theta_cap_anglecalc), 0.0, np.cos(theta_cap_anglecalc)]]).T
+    S_G_Rt_anglecalc = np.array([[np.cos(phi_cap_anglecalc) * np.cos(theta_cap_anglecalc), -np.sin(phi_cap_anglecalc),
+                                  -np.cos(phi_cap_anglecalc) * np.sin(theta_cap_anglecalc)],
+                                 [np.sin(phi_cap_anglecalc) * np.cos(theta_cap_anglecalc), np.cos(phi_cap_anglecalc),
+                                  -np.sin(phi_cap_anglecalc) * np.sin(theta_cap_anglecalc)],
+                                 [np.sin(theta_cap_anglecalc), 0.0, np.cos(theta_cap_anglecalc)]]).T
     # Transformationsmatrix um z & phi, dann y & theta --- [0]=x_Rt.T, [1]=y_Rt.T, [2]=z_Rt.T
-    psi_low_anglecalc = get_angle_v_on_plane(z_mauv_anglecalc, np.array(S_G_Rt_anglecalc[2])[np.newaxis].T, np.array(S_G_Rt_anglecalc[1])[np.newaxis].T)
-    theta_low_anglecalc = get_angle_v_on_plane(z_mauv_anglecalc, np.array(S_G_R_anglecalc[2])[np.newaxis].T, np.array(S_G_R_anglecalc[0])[np.newaxis].T)
+    psi_low_anglecalc = get_angle_v_on_plane(z_mauv_anglecalc, np.array(S_G_Rt_anglecalc[2])[np.newaxis].T,
+                                             np.array(S_G_Rt_anglecalc[1])[np.newaxis].T)
+    theta_low_anglecalc = get_angle_v_on_plane(z_mauv_anglecalc, np.array(S_G_R_anglecalc[2])[np.newaxis].T,
+                                               np.array(S_G_R_anglecalc[0])[np.newaxis].T)
     return phi_cap_anglecalc, theta_cap_anglecalc, psi_low_anglecalc, theta_low_anglecalc
 
 
-def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6],  meantype='db_mean', b_onboard=False, measfilename='path', measfile_path=None):
+def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], meantype='db_mean', b_onboard=False,
+                               measfilename='path', measfile_path=None):
     """
     :param analyze_tx:
     :param txpos_tuning:
@@ -229,7 +238,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 print(line)
 
             if load_grid_settings and not load_measdata:
-                #print(line)
+                # print(line)
 
                 grid_settings = map(float, line[:-2].split(' '))
                 x0 = [grid_settings[0], grid_settings[1], grid_settings[2]]
@@ -240,7 +249,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 data_shape_file = []
                 for i in range(3):  # range(num_dof)
                     try:
-                        shapei = int((xn[i]-x0[i]) / grid_dxdyda[i] + 1)
+                        shapei = int((xn[i] - x0[i]) / grid_dxdyda[i] + 1)
                     except ZeroDivisionError:
                         shapei = 1
                     data_shape_file.append(shapei)
@@ -248,24 +257,24 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 print('data shape  = ' + str(data_shape_file))
 
                 numtx = int(grid_settings[10])
-                txdata = grid_settings[11:(11+4*numtx)]  # urspruenglich [(2+numtx):(2+numtx+3*numtx)]
+                txdata = grid_settings[11:(11 + 4 * numtx)]  # urspruenglich [(2+numtx):(2+numtx+3*numtx)]
 
                 # read tx positions
                 txpos_list = []
                 for itx in range(numtx):
-                    itxpos = txdata[3*itx:3*itx+3]  # urspruenglich [2*itx:2*itx+2]
+                    itxpos = txdata[3 * itx:3 * itx + 3]  # urspruenglich [2*itx:2*itx+2]
                     txpos_list.append(itxpos)
                 txpos = np.asarray(txpos_list)
 
                 # read tx frequencies
                 freqtx_list = []
                 for itx in range(numtx):
-                    freqtx_list.append(txdata[3*numtx+itx])  # urspruenglich (txdata[2*numtx+itx])
+                    freqtx_list.append(txdata[3 * numtx + itx])  # urspruenglich (txdata[2*numtx+itx])
                 freqtx = np.asarray(freqtx_list)
 
                 # print out
                 print('filename = ' + measdata_filename)
-                print('num_of_gridpoints = ' + str(data_shape_file[0]*data_shape_file[1]))
+                print('num_of_gridpoints = ' + str(data_shape_file[0] * data_shape_file[1]))
                 print('x0 = ' + str(x0))
                 print('xn = ' + str(xn))
                 print('grid_shape = ' + str(data_shape_file))
@@ -290,7 +299,8 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 zpos = np.linspace(startz, endz, stepz)
 
                 # wp_matx, wp_maty, wp_matz = np.meshgrid(xpos, ypos, zpos)  # old wp-creation with z axis being main moving axis
-                wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then second least moving first, then quickest last
+                wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos,
+                                                        xpos)  # put least moving axis second, then second least moving first, then quickest last
 
                 # print(xpos)
 
@@ -321,7 +331,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     return data[s < m]
 
                 if meantype is 'lin':
-                    rss_mat_lin = 10**(rss_mat_raw/10)
+                    rss_mat_lin = 10 ** (rss_mat_raw / 10)
                     mean_lin = np.mean(rss_mat_lin, axis=1)
                     var_lin = np.var(rss_mat_lin, axis=1)
                     mean = 10 * np.log10(mean_lin)
@@ -340,12 +350,15 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 # antenna_orientation = np.array([[0.0], [0.64278760968], [0.76604444311]])
                 antenna_orientation = np.array([[0.0], [0.0], [1.0]])
                 # antenna_orientation = np.array([[0], [0.34202014332], [0.93969262078]])  # todo: Enter antenna orientation for correct parameter calibration here!
-                wp_angles = [0.0]*num_tx*4
+                wp_angles = [0.0] * num_tx * 4
                 for itx in range(num_tx):
-                    wp_angles[itx*4:itx*4+4] = get_angles(np.transpose(wp_pos[0:2][np.newaxis]), np.transpose(txpos[itx, 0:2][np.newaxis]), txpos[itx, 2], antenna_orientation, wp_pos[2])
+                    wp_angles[itx * 4:itx * 4 + 4] = get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
+                                                                np.transpose(txpos[itx, 0:2][np.newaxis]),
+                                                                txpos[itx, 2], antenna_orientation, wp_pos[2])
                 wp_angles = np.asarray(wp_angles)
 
-                plotdata_line = np.concatenate((wp_pos, mean, var, wp_angles), axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
+                plotdata_line = np.concatenate((wp_pos, mean, var, wp_angles),
+                                               axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
                 plotdata_mat_lis.append(plotdata_line)
 
         measfile.close()
@@ -373,10 +386,12 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
                 return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + 2 * n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm)))  # rss in db
             '''
+
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(3.83135740649**2) # rss in db
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(
+                    3.83135740649 ** 2)  # rss in db
         elif model_type == 'lin':  # todo: OLD: consider linearized Angles when use is desired. decide to not bother linearizing and throw this out of the code.
             def rsm_model(dist_rsm, lambda_rsm, gamma_rsm):
                 """Range Sensor Model (RSM) structure."""
@@ -401,22 +416,24 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
             print analyze_tx
             print plotdata_mat[:, 0:3]
             print txpos[itx, 0:3]
-            rdist_vec = plotdata_mat[:, 0:3] - txpos[itx, 0:3]  # + [0, 0, 0] # r_wp -r_txpos -> dim: num_meas x 2or3 (3 if z is introduced)
-            rdist_temp = np.asarray(np.linalg.norm(rdist_vec, axis=1))  # distance norm: |r_wp -r_txpos| -> dim: num_meas x 1
+            rdist_vec = plotdata_mat[:, 0:3] - txpos[itx,
+                                               0:3]  # + [0, 0, 0] # r_wp -r_txpos -> dim: num_meas x 2or3 (3 if z is introduced)
+            rdist_temp = np.asarray(
+                np.linalg.norm(rdist_vec, axis=1))  # distance norm: |r_wp -r_txpos| -> dim: num_meas x 1
 
             if calibration_mode:
-                rssdata = plotdata_mat[:, 3+itx]  # rss-mean for each wp
-                theta_cap = plotdata_mat[:, 3+num_tx*2+1+itx*4]
-                psi_low = plotdata_mat[:, 3+num_tx*2+2+itx*4]
-                theta_low = plotdata_mat[:, 3+num_tx*2+3+itx*4]
+                rssdata = plotdata_mat[:, 3 + itx]  # rss-mean for each wp
+                theta_cap = plotdata_mat[:, 3 + num_tx * 2 + 1 + itx * 4]
+                psi_low = plotdata_mat[:, 3 + num_tx * 2 + 2 + itx * 4]
+                theta_low = plotdata_mat[:, 3 + num_tx * 2 + 3 + itx * 4]
                 rsm_paramtuple = rdist_temp, theta_cap, psi_low, theta_low
-                popt, pcov = curve_fit(rsm_model, rsm_paramtuple, rssdata)  #, bounds=([-np.inf, -np.inf, 0], np.inf)
+                popt, pcov = curve_fit(rsm_model, rsm_paramtuple, rssdata)  # , bounds=([-np.inf, -np.inf, 0], np.inf)
                 del pcov
 
                 lambda_t.append(round(popt[0], 7))
                 gamma_t.append(round(popt[1], 4))
-                #n_t.append(round(popt[2], 4))
-                #n_r.append(round(popt[2], 4))
+                # n_t.append(round(popt[2], 4))
+                # n_r.append(round(popt[2], 4))
 
             rdist.append(rdist_temp)
 
@@ -428,11 +445,11 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
             print('tx_n = np.array(' + str(n_t) + ')  # ' + measdata_filename)
             print('rx_n = np.array(' + str(n_r) + ')  # ' + measdata_filename)
 
-        elif model_type=='lin':
+        elif model_type == 'lin':
             print('\nVectors for convenient copy/paste')
             print('lambda_lin = ' + str(lambda_t))
             print('gamma_lin = ' + str(gamma_t))
-        
+
         """
         Plots
         """
@@ -454,10 +471,9 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     rdata = np.linspace(1, np.max(rdist), num=1000)
 
                     phi_cap = np.array([0.0] * len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 0 + itx * 4]  #
-                    theta_cap = np.array([0.0]*len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 1 + itx * 4]  #
-                    psi_low = np.array([0.0]*len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 2 + itx * 4]  #
-                    theta_low = np.array([0.0]*len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 3 + itx * 4]  #
-
+                    theta_cap = np.array([0.0] * len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 1 + itx * 4]  #
+                    psi_low = np.array([0.0] * len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 2 + itx * 4]  #
+                    theta_low = np.array([0.0] * len(rdata))  # plotdata_mat[:, 3 + num_tx * 2 + 3 + itx * 4]  #
 
                     ax.legend(loc='upper right')
                     ax.grid()
@@ -472,11 +488,15 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                         height_for_plot = iter
 
                         for i in range(len(rdata)):
-                            phi_cap[i], theta_cap[i], psi_low[i], theta_low[i] = get_angles(np.array([[txpos[itx][0]+rdata[i]], [txpos[itx][1]]]), np.array([[txpos[itx][0]], [txpos[itx][1]]]), txpos[itx][2], antenna_orientation, height_for_plot)
+                            phi_cap[i], theta_cap[i], psi_low[i], theta_low[i] = get_angles(
+                                np.array([[txpos[itx][0] + rdata[i]], [txpos[itx][1]]]),
+                                np.array([[txpos[itx][0]], [txpos[itx][1]]]), txpos[itx][2], antenna_orientation,
+                                height_for_plot)
 
                         rsm_paramtuple_plot = rdata, theta_cap, psi_low, theta_low
 
-                        ax.plot(rdata, rsm_model(rsm_paramtuple_plot, lambda_t[itx], gamma_t[itx], n_t[itx]), label='Fitted Curve', zorder=2)  # , n_r[itx]
+                        ax.plot(rdata, rsm_model(rsm_paramtuple_plot, lambda_t[itx], gamma_t[itx], n_t[itx]),
+                                label='Fitted Curve', zorder=2)  # , n_r[itx]
 
                     fig.subplots_adjust(hspace=0.4)
 
@@ -496,7 +516,8 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     rss_full_vec = np.reshape(rss_mat_ones, (len(xpos) * len(ypos) * len(zpos), 1))
 
                     measured_wp_list = np.reshape(measured_wp_list, (len(measured_wp_list), 1))
-                    measured_wp_list[:] -= measured_wp_list[0]  # In case that measurements have been selected manually and measurements are not the first ones -> first measurement is meas zero and so on
+                    measured_wp_list[:] -= measured_wp_list[
+                        0]  # In case that measurements have been selected manually and measurements are not the first ones -> first measurement is meas zero and so on
                     rss_mean = np.reshape(rss_mean, (len(rss_mean), 1))
 
                     rss_full_vec[measured_wp_list, 0] = rss_mean
@@ -509,7 +530,8 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     val_sequence = np.linspace(-100, -20, 80 / 5 + 1)
 
                     # CS = ax.contour(wp_matx[::2, ::2], wp_maty[::2, ::2], rss_full_mat[::2, ::2], val_sequence) # takes every second value
-                    CS = ax.contour(wp_matx[0, :, :], wp_maty[0, :, :], rss_full_mat[:, :, 0], val_sequence, cmap=plt.cm.jet, label='RSS Contours')
+                    CS = ax.contour(wp_matx[0, :, :], wp_maty[0, :, :], rss_full_mat[:, :, 0], val_sequence,
+                                    cmap=plt.cm.jet, label='RSS Contours')
                     ax.clabel(CS, inline=0, fontsize=10)
 
                     for itx_plot in analyze_tx:
@@ -535,8 +557,12 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
 
                     rss_2_plot = -70
                     rss_2_plot_var = 1
-                    same_rss_indexes = np.where(np.logical_and(plotdata_mat[:, 3+itx] <= (rss_2_plot + rss_2_plot_var), plotdata_mat[:, 3+itx] >= (rss_2_plot - rss_2_plot_var)))
-                    CS = ax.scatter(plotdata_mat[same_rss_indexes[0], 0], plotdata_mat[same_rss_indexes[0], 1], plotdata_mat[same_rss_indexes[0], 2], label='Scatter 3D for same RSS')  # for coloring kwag: c=plotdata_mat[same_rss_indexes[0], 3+itx]
+                    same_rss_indexes = np.where(
+                        np.logical_and(plotdata_mat[:, 3 + itx] <= (rss_2_plot + rss_2_plot_var),
+                                       plotdata_mat[:, 3 + itx] >= (rss_2_plot - rss_2_plot_var)))
+                    CS = ax.scatter(plotdata_mat[same_rss_indexes[0], 0], plotdata_mat[same_rss_indexes[0], 1],
+                                    plotdata_mat[same_rss_indexes[0], 2],
+                                    label='Scatter 3D for same RSS')  # for coloring kwag: c=plotdata_mat[same_rss_indexes[0], 3+itx]
 
                     # CS = ax.scatter(wp_matx[:, :, 0], wp_maty[:, :, 0], wp_matz[:, :, 0], val_sequence)
                     ax.clabel(CS, inline=0, fontsize=10)
@@ -567,7 +593,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     ax.set_ylabel('y [mm]')
                     ax.set_zlabel('rss [dB]')
                     ax.set_zlim([-110, -20])
-                    ax.set_title('RSS field for TX# ' + str(itx+1))
+                    ax.set_title('RSS field for TX# ' + str(itx + 1))
 
             plot_fig3 = False
             if plot_fig3:
@@ -587,7 +613,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     ax.set_zlabel('rss_var [dB]')
                     ax.set_title('RSS field variance for TX# ' + str(itx + 1))
 
-            plot_fig4 = True  #plots the errorbar
+            plot_fig4 = True  # plots the errorbar
             if plot_fig4:
                 fig = plt.figure(4)
                 for itx in analyze_tx:
@@ -602,7 +628,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                         pos = 111
                     ax = fig.add_subplot(pos)
                     ax.errorbar(rdist, rss_mean, yerr=rss_var,
-                                fmt='ro',markersize='1', ecolor='g', label='Original Data')
+                                fmt='ro', markersize='1', ecolor='g', label='Original Data')
 
                     rdata = np.linspace(np.min(rdist), np.max(rdist), num=1000)
                     rsm_paramtuple_plot = rdata, theta_cap, psi_low, theta_low
@@ -661,7 +687,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     for i in range(len(r_dist_sort)):
                         if r_dist_sort[i] >= bin[-1]:
                             break
-                        elif bin[ibin-1] <= r_dist_sort[i] < bin[ibin]:
+                        elif bin[ibin - 1] <= r_dist_sort[i] < bin[ibin]:
                             data_temp.append(dist_error[i])
                         else:
                             bin_mean_temp = np.mean(data_temp)
@@ -701,10 +727,10 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
 
                     ax = fig.add_subplot(pos, projection='polar')
 
-                    rss_max = plotdata_mat[:, 3+itx].max()
-                    rss_max_index = np.where(plotdata_mat[:, 3+itx] == rss_max)
+                    rss_max = plotdata_mat[:, 3 + itx].max()
+                    rss_max_index = np.where(plotdata_mat[:, 3 + itx] == rss_max)
 
-                    rss_min = plotdata_mat[:, 3+itx].min()
+                    rss_min = plotdata_mat[:, 3 + itx].min()
                     rss_min_index = np.where(plotdata_mat[:, 3 + itx] == rss_min)
 
                     rss_hpbw = rss_max - 3
@@ -722,33 +748,36 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     while plotdata_mat[itx_2, 3 + itx] > rss_hpbw:
                         itx_2 -= 1
                         if itx_2 == -1:
-                            itx_2 = totnumwp-1
+                            itx_2 = totnumwp - 1
                     else:
                         rss_hpbw_negativeitx_rss = plotdata_mat[itx_2 + 1, 3 + itx]
                         rss_hpbw_negativeitx_rad = plotdata_mat[itx_2 + 1, 2]
 
                     if abs(rss_hpbw_positiveitx_rss - rss_hpbw_negativeitx_rss) > 0.5:
-                        print('~~~~~> Possible ERROR: HPBW-RSS-measurements are far apart: ' + str(abs(rss_hpbw_positiveitx_rss - rss_hpbw_negativeitx_rss)))
+                        print('~~~~~> Possible ERROR: HPBW-RSS-measurements are far apart: ' + str(
+                            abs(rss_hpbw_positiveitx_rss - rss_hpbw_negativeitx_rss)))
 
-                    print('HPBW No1: ' + str(abs(rss_hpbw_positiveitx_rad - rss_hpbw_negativeitx_rad)) + ' rad / ' + str(abs(rss_hpbw_positiveitx_rad - rss_hpbw_negativeitx_rad)*180/np.pi) + ' deg')
+                    print('HPBW No1: ' + str(
+                        abs(rss_hpbw_positiveitx_rad - rss_hpbw_negativeitx_rad)) + ' rad / ' + str(
+                        abs(rss_hpbw_positiveitx_rad - rss_hpbw_negativeitx_rad) * 180 / np.pi) + ' deg')
 
-                    pot_max_2 = 2*rss_min_index[0][0] - rss_max_index[0][0]
+                    pot_max_2 = 2 * rss_min_index[0][0] - rss_max_index[0][0]
                     if pot_max_2 < 0:
                         pot_max_2 += totnumwp
                     if pot_max_2 >= totnumwp:
                         pot_max_2 -= totnumwp
 
                     itx_3 = 0
-                    if plotdata_mat[pot_max_2, 3+itx] < plotdata_mat[pot_max_2 + 1, 3+itx]:
+                    if plotdata_mat[pot_max_2, 3 + itx] < plotdata_mat[pot_max_2 + 1, 3 + itx]:
                         itx_3 += 1
-                        while plotdata_mat[pot_max_2 + itx_3, 3+itx] < plotdata_mat[pot_max_2 + itx_3 + 1, 3+itx]:
+                        while plotdata_mat[pot_max_2 + itx_3, 3 + itx] < plotdata_mat[pot_max_2 + itx_3 + 1, 3 + itx]:
                             itx_3 += 1
                     else:
                         itx_3 -= 1
-                        while plotdata_mat[pot_max_2 + itx_3, 3+itx] < plotdata_mat[pot_max_2 + itx_3 - 1, 3+itx]:
+                        while plotdata_mat[pot_max_2 + itx_3, 3 + itx] < plotdata_mat[pot_max_2 + itx_3 - 1, 3 + itx]:
                             itx_3 -= 1
 
-                    rss_max_2 = plotdata_mat[pot_max_2 + itx_3, 3+itx]
+                    rss_max_2 = plotdata_mat[pot_max_2 + itx_3, 3 + itx]
                     rss_max_2_index = np.where(plotdata_mat[:, 3 + itx] == rss_max_2)
 
                     rss_hpbw_2 = rss_max_2 - 3
@@ -775,9 +804,11 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                         print('~~~~~> Possible ERROR: HPBW-RSS-measurements are far apart: ' + str(
                             abs(rss_hpbw_2_positiveitx_rss - rss_hpbw_2_negativeitx_rss)))
 
-                    print('HPBW No2: ' + str(abs(rss_hpbw_2_positiveitx_rad - rss_hpbw_2_negativeitx_rad)) + ' rad / ' + str(abs(rss_hpbw_2_positiveitx_rad - rss_hpbw_2_negativeitx_rad)*180/np.pi) + ' deg')
+                    print('HPBW No2: ' + str(
+                        abs(rss_hpbw_2_positiveitx_rad - rss_hpbw_2_negativeitx_rad)) + ' rad / ' + str(
+                        abs(rss_hpbw_2_positiveitx_rad - rss_hpbw_2_negativeitx_rad) * 180 / np.pi) + ' deg')
 
-                    ax.plot(plotdata_mat[:, 2]+np.pi*0.0, plotdata_mat[:, 3+itx], label='Radiation Pattern')
+                    ax.plot(plotdata_mat[:, 2] + np.pi * 0.0, plotdata_mat[:, 3 + itx], label='Radiation Pattern')
                     ax.set_rmax(rss_max)
                     ax.set_rmin(rss_min)
                     rticks = np.round(np.append(np.linspace(rss_min, rss_max, 5), rss_hpbw), 2)
@@ -799,7 +830,6 @@ Onboard Calibration
 
 
 def onboard_cal_param(tx_pos, measdata_filename='meas_data_wburg.txt', param_filename='cal_param.txt'):
-
     with open(measdata_filename, 'r') as measfile:
         meas_data_append_list = []
 
@@ -812,68 +842,66 @@ def onboard_cal_param(tx_pos, measdata_filename='meas_data_wburg.txt', param_fil
 
         for i, line in enumerate(measfile):
 
-                #data_shape_file = [int((xn[0]-x0[0]) / grid_dxdy[0] + 1), int((xn[1]-x0[1]) / grid_dxdy[1] + 1)]
-                #print('data shape  = ' + str(data_shape_file))
+            # data_shape_file = [int((xn[0]-x0[0]) / grid_dxdy[0] + 1), int((xn[1]-x0[1]) / grid_dxdy[1] + 1)]
+            # print('data shape  = ' + str(data_shape_file))
 
-                # read tx positions
-                txpos_list = tx_pos
-                #for itx in range(numtx):
-                #    itxpos = txdata[2*itx:2*itx+2]
-                #    txpos_list.append(itxpos)
-                txpos = np.asarray(txpos_list)
+            # read tx positions
+            txpos_list = tx_pos
+            # for itx in range(numtx):
+            #    itxpos = txdata[2*itx:2*itx+2]
+            #    txpos_list.append(itxpos)
+            txpos = np.asarray(txpos_list)
 
-                # read tx frequencies
-                #freqtx_list = []
-                #for itx in range(numtx):
-                #    freqtx_list.append(txdata[2*numtx+itx])
+            # read tx frequencies
+            # freqtx_list = []
+            # for itx in range(numtx):
+            #    freqtx_list.append(txdata[2*numtx+itx])
 
+            totnumwp += 1
 
-                totnumwp += 1
+            # way point data - structure 'wp_x, wp_y, num_wp, num_tx, num_meas'
+            meas_data_line = map(float, line[0:-3].split(' '))
+            meas_data_append_list.append(meas_data_line)
+            meas_data_mat_line = np.asarray(meas_data_line)
 
-                # way point data - structure 'wp_x, wp_y, num_wp, num_tx, num_meas'
-                meas_data_line = map(float, line[0:-3].split(' '))
-                meas_data_append_list.append(meas_data_line)
-                meas_data_mat_line = np.asarray(meas_data_line)
+            measured_wp_list.append(int(meas_data_mat_line[2]))
+            num_tx = int(meas_data_mat_line[3])
+            num_meas = int(meas_data_mat_line[4])
 
+            # line is follows by freq_tx of all transceiver
+            first_rss = 5 + num_tx
 
-                measured_wp_list.append(int(meas_data_mat_line[2]))
-                num_tx = int(meas_data_mat_line[3])
-                num_meas = int(meas_data_mat_line[4])
+            # rss data - str_rss structure: 'ftx1.1, ftx1.2, [..] ,ftx1.n, ftx2.1, ftx2.2, [..], ftx2.n
+            meas_data_mat_rss = meas_data_mat_line[first_rss:]
 
-                # line is follows by freq_tx of all transceiver
-                first_rss = 5 + num_tx
+            rss_mat_raw = meas_data_mat_rss.reshape([num_tx, num_meas])
 
-                # rss data - str_rss structure: 'ftx1.1, ftx1.2, [..] ,ftx1.n, ftx2.1, ftx2.2, [..], ftx2.n
-                meas_data_mat_rss = meas_data_mat_line[first_rss:]
+            def reject_outliers(data, m=5.):
+                d = np.abs(data - np.median(data))
+                mdev = np.median(d)
+                s = d / mdev if mdev else 0.
+                # print('kicked out samples' + str([s < m]))
+                return data[s < m]
 
-                rss_mat_raw = meas_data_mat_rss.reshape([num_tx, num_meas])
+            mean = np.zeros([numtx])
+            var = np.zeros([numtx])
+            for itx in range(numtx):
+                rss_mat_row = rss_mat_raw[itx, :]  # reject_outliers(rss_mat_raw[itx, :])
 
-                def reject_outliers(data, m=5.):
-                    d = np.abs(data - np.median(data))
-                    mdev = np.median(d)
-                    s = d / mdev if mdev else 0.
-                    # print('kicked out samples' + str([s < m]))
-                    return data[s < m]
+                # print('kicked out samples:' + str(len(rss_mat_raw[itx, :]) - len(rss_mat_row)))
+                mean[itx] = np.mean(rss_mat_row)
+                var[itx] = np.var(rss_mat_row)
+            # print('var = ' + str(var))
+            wp_pos = [meas_data_mat_line[0], meas_data_mat_line[1]]
 
-                mean = np.zeros([numtx])
-                var = np.zeros([numtx])
-                for itx in range(numtx):
-                    rss_mat_row = rss_mat_raw[itx, :]  # reject_outliers(rss_mat_raw[itx, :])
-
-                    # print('kicked out samples:' + str(len(rss_mat_raw[itx, :]) - len(rss_mat_row)))
-                    mean[itx] = np.mean(rss_mat_row)
-                    var[itx] = np.var(rss_mat_row)
-                # print('var = ' + str(var))
-                wp_pos = [meas_data_mat_line[0], meas_data_mat_line[1]]
-
-                plotdata_line = np.concatenate((wp_pos, mean, var), axis=0)
-                plotdata_mat_lis.append(plotdata_line)
+            plotdata_line = np.concatenate((wp_pos, mean, var), axis=0)
+            plotdata_mat_lis.append(plotdata_line)
 
         measfile.close()
 
         # data_shape = [data_shape_file[1], data_shape_file[0]]
         plotdata_mat = np.asarray(plotdata_mat_lis)
-        #print('Plot data mat =' + str(plotdata_mat))
+        # print('Plot data mat =' + str(plotdata_mat))
 
         """
         Model fit
@@ -892,7 +920,7 @@ def onboard_cal_param(tx_pos, measdata_filename='meas_data_wburg.txt', param_fil
 
             rdist_temp = np.asarray(np.linalg.norm(rdist_vec, axis=1))  # distance norm: |r_wp -r_txpos|
 
-            rssdata = plotdata_mat[:, 2+itx]  # rss-mean for each wp
+            rssdata = plotdata_mat[:, 2 + itx]  # rss-mean for each wp
             popt, pcov = curve_fit(rsm_model, rdist_temp, rssdata)
             del pcov
 
@@ -900,16 +928,16 @@ def onboard_cal_param(tx_pos, measdata_filename='meas_data_wburg.txt', param_fil
             gamma.append(round(popt[1], 4))
             # print('tx #' + str(itx+1) + ' alpha= ' + str(alpha[itx]) + ' gamma= ' + str(gamma[itx]))
             rdist.append(rdist_temp)
-            #print('itx = ' + str(itx))
-        #print('rdist = ' + str(rdist))
+            # print('itx = ' + str(itx))
+        # print('rdist = ' + str(rdist))
 
         with open(param_filename, 'w') as paramfile:
             for itx in range(numtx):
-                paramfile.write(str(alpha[itx])+' ')
+                paramfile.write(str(alpha[itx]) + ' ')
             paramfile.write('\n')
 
             for itx in range(numtx):
-                paramfile.write(str(gamma[itx])+' ')
+                paramfile.write(str(gamma[itx]) + ' ')
             paramfile.write('\n')
             paramfile.close()
 
@@ -924,7 +952,6 @@ def get_cal_param_from_file(param_filename='cal_param.txt'):
     with open(param_filename, 'r') as param_file:
         param_list = []
         for i, line in enumerate(param_file):
-
             param_line = map(float, line[:-2].split(' '))
 
             param_list.append(param_line)
@@ -946,3 +973,19 @@ def lambertloc(rss, alpha, gamma):
     z = 20 / (np.log(10) * alpha) * lambertw(np.log(10) * alpha / 20 * np.exp(-np.log(10) / 20 * (rss + gamma)))
     return z.real  # [mm]
 
+
+def write_cal_param_to_file(cal_param_file=None):  # TODO: finish this function as first in the morning
+    if cal_param_file is not None:
+        measfile_rel_path = path.relpath('Measurements/' + cal_param_file + '.txt')
+    else:
+        measfile_rel_path = hc_tools.select_file(functionname='write_cal_param_to_file')
+    with open(param_filename, 'r') as param_file:
+        param_list = []
+        for i, line in enumerate(param_file):
+            param_line = map(float, line[:-2].split(' '))
+
+            param_list.append(param_line)
+
+    alpha = param_list[0]
+    gamma = param_list[1]
+    return True

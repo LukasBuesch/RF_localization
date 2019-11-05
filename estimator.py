@@ -20,8 +20,8 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
     """
     :param: object: existing object of EKF to write values in
     :param analyze_tx: Number of used tx
-    :param measfile_path: path to measfile
-    :return:
+    :param measfile_path: relative path to measfile
+    :return: True
     """
 # TODO: give values direct to class EKF -> give created object to this function if possible
     analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
@@ -135,16 +135,17 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
         data_shape = [data_shape_file[1], data_shape_file[0], data_shape_file[2]]  # data_shape: n_x, n_y, n_z
         plotdata_mat = np.asarray(plotdata_mat_lis)
 
-        return data_shape, plotdata_mat
+        return True
 
 
 class Extended_Kalman_Filter(object):
+
     def __init__(self, set_model_type='log', cal_param_from_file=None):
         """
         Initialize EKF object
 
         :param set_model_type: lin or log
-        :param cal_param_from_file: get lambda and gamma from file or use default
+        :param cal_param_from_file: get lambda and gamma from file (param gives relative path) or use default
         :param
         :param
         """
@@ -156,11 +157,12 @@ class Extended_Kalman_Filter(object):
         self.__tx_gamma = []
 
 
-
-
     '''
     parameter access
     '''
+
+    '''set params'''
+
     def set_cal_params(self):
         if self.__model_type == 'log':
             """ parameter for log model """
@@ -171,20 +173,19 @@ class Extended_Kalman_Filter(object):
                 print('alpha = ' + str(self.__tx_alpha))
                 print('gamma = ' + str(self.__tx_gamma))
 
-            else:
+            else:  # TODO: set new params as default
+
                 self.__tx_alpha = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441,
-                                   0.013228415946149144,  # TODO: set new params as default
+                                   0.013228415946149144,
                                    0.010212580857184312, 0.010286057191882235]
                 self.__tx_gamma = [-0.49471304043015696, -1.2482393190627841, -0.17291318936462172,
                                    -0.61587988305564456,
                                    0.99831151034040444, 0.85711994311461936]
+                print('Used default values for alpha and gamma (change in class if needed)\n')
 
-        elif self.__model_type == 'lin':
+        elif self.__model_type == 'lin':  # currently no support for linear model type
             """ parameter for linear model """
-            # self.__tx_alpha = [-0.020559673796613238, -0.027175147727451984, -0.023111068055053488, -0.024454023111282586,
-            #             -0.024854213762496295, -0.021694731996127509]
-            # self.__tx_gamma = [-42.189573853301056, -37.651222316888159, -40.60648965954146, -41.523883513559113,
-            #             -42.342411649995938, -42.349468350676268]
+            pass
 
     def set_tx_freq(self, tx_freq):
         self.__tx_freq = tx_freq
@@ -193,6 +194,21 @@ class Extended_Kalman_Filter(object):
     def set_tx_pos(self,tx_pos):
         self.__tx_pos = tx_pos
         return True
+
+
+    '''get params'''
+
+    def get_tx_freq(self):
+        return self.__tx_freq
+
+    def get_tx_pos(self):
+        return self.__tx_pos
+
+    def get_tx_alpha(self):
+        return self.__tx_alpha
+
+    def get_tx_gamma(self):
+        return self.__tx_gamma
 
 
 
@@ -225,14 +241,9 @@ class Extended_Kalman_Filter(object):
     def get_tx_num(self):
         return self.__tx_num
 
-    def get_tx_pos(self):
-        return self.__tx_pos
 
-    def get_tx_alpha(self):
-        return self.__tx_alpha
 
-    def get_tx_gamma(self):
-        return self.__tx_gamma
+
 
 
 class measurement_simulator(object):
@@ -242,3 +253,8 @@ class measurement_simulator(object):
 def main(measfile_rel_path=None):
     EKF = Extended_Kalman_Filter(cal_param_from_file=None)  # enter cal param filename here
     read_measfile_header(object=EKF, analyze_tx=[1, 2], measfile_path=measfile_rel_path)
+
+    '''testing pruposes'''
+    tx_freq = EKF.get_tx_freq()
+    print tx_freq
+    EKF.set_cal_params()
