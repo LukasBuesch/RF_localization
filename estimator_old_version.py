@@ -254,7 +254,7 @@ class ExtendedKalmanFilter(object):
             self.__p_mat = (self.__i_mat - np.dot(k_mat, h_jac_mat.transpose())) * self.__p_mat  # = (I-KH)*P
         return True
 
-    def check_valid_position_estimate(self,x_field_begin=[-500 ,-500], x_field_end=[3700, 2600]):
+    def check_valid_position_estimate(self,x_field_begin=[-500 ,-500], x_field_end=[3700, 2600]):  # TODO: implement condition that only estimated position under the water surface is valid
         if x_field_begin[0] > self.__x_est[0] or x_field_end[0] < self.__x_est[0]:
             self.reset_ekf()
             #print('EKF: Position estimate out of range --> reset EKF')

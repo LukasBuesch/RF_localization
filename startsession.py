@@ -54,7 +54,7 @@ def write_cal_param_file(lambda_, gamma_, cal_param_file=None):
 
 def check_antennas(show_power_spectrum=False):
     sdr_type = 'NooElec'
-    Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # for NooElec stick
+    Rf = rf.RfEar(434.0e6, sdr_type, 1e5)  # for NooElec stick
 
     plt.ion()
 
