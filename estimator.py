@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import estimator_err_comp_plot_tools as ept
 import rf_tools
-import rf
 
 """
 map/track the position of the mobile node using an EKF
@@ -23,7 +22,7 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
     :param measfile_path: relative path to measfile
     :return: True
     """
-# TODO: give values direct to class EKF -> give created object to this function if possible
+    # TODO: give values direct to class EKF -> give created object to this function if possible
     analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
     print analyze_tx
 
@@ -131,7 +130,6 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
         object.set_tx_freq(freqtx)
         object.set_tx_pos(txpos_list)
 
-
         data_shape = [data_shape_file[1], data_shape_file[0], data_shape_file[2]]  # data_shape: n_x, n_y, n_z
         plotdata_mat = np.asarray(plotdata_mat_lis)
 
@@ -140,7 +138,7 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, set_model_type='log', cal_param_file=None):
+    def __init__(self, set_model_type='log'):
         """
         Initialize EKF object
 
@@ -150,12 +148,10 @@ class Extended_Kalman_Filter(object):
         :param
         """
         self.__model_type = set_model_type
-        self.cal_param_file = cal_param_file
         self.__tx_freq = []
         self.__tx_pos = []
         self.__tx_lambda = []
         self.__tx_gamma = []
-
 
     '''
     parameter access
@@ -163,12 +159,14 @@ class Extended_Kalman_Filter(object):
 
     '''set params'''
 
-    def set_cal_params(self):
+    def set_cal_params(self, cal_param_file=None):
+        self.cal_param_file = cal_param_file
         if self.__model_type == 'log':
             """ parameter for log model """
 
             if self.cal_param_file is not None:
-                (self.__tx_lambda, self.__tx_gamma) = rf_tools.get_cal_param_from_file(param_filename=self.cal_param_file)
+                (self.__tx_lambda, self.__tx_gamma) = rf_tools.get_cal_param_from_file(
+                    param_filename=self.cal_param_file)
                 print('Take lambda/gamma from cal-file')
                 print('lambda = ' + str(self.__tx_lambda))
                 print('gamma = ' + str(self.__tx_gamma))
@@ -176,8 +174,8 @@ class Extended_Kalman_Filter(object):
             else:  # TODO: set new params as default
 
                 self.__tx_lambda = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441,
-                                   0.013228415946149144,
-                                   0.010212580857184312, 0.010286057191882235]
+                                    0.013228415946149144,
+                                    0.010212580857184312, 0.010286057191882235]
                 self.__tx_gamma = [-0.49471304043015696, -1.2482393190627841, -0.17291318936462172,
                                    -0.61587988305564456,
                                    0.99831151034040444, 0.85711994311461936]
@@ -193,10 +191,9 @@ class Extended_Kalman_Filter(object):
         self.__tx_freq = tx_freq
         return True
 
-    def set_tx_pos(self,tx_pos):
+    def set_tx_pos(self, tx_pos):
         self.__tx_pos = tx_pos
         return True
-
 
     '''get params'''
 
@@ -211,9 +208,6 @@ class Extended_Kalman_Filter(object):
 
     def get_tx_gamma(self):
         return self.__tx_gamma
-
-
-
 
     # Old Block
     def set_x_0(self, x0):
@@ -244,33 +238,42 @@ class Extended_Kalman_Filter(object):
         return self.__tx_num
 
 
-
-
-
-
 class measurement_simulator(object):
     """
     simulates a RSS measurement
-    -> writes values in file
+    -> writes values in file or set values directly??
     """
+
     def __init__(self):
         pass
+
     pass
 
 
-def main(measfile_rel_path=None, cal_param_file=None):
+def main(measfile_rel_path=None, cal_param_file=None, make_plot=False):
     """
     executive program
 
     :param measfile_rel_path:
     :param cal_param_file: just filename (without ending .txt)
-    :return:
+    :return: True
     """
 
-    EKF = Extended_Kalman_Filter(cal_param_file=cal_param_file)
-    read_measfile_header(object=EKF, analyze_tx=[1, 2], measfile_path=measfile_rel_path)
+    '''initialize values for EKF'''
+    EKF = Extended_Kalman_Filter()  # initialize object
+    read_measfile_header(object=EKF, analyze_tx=[1, 2],
+                         measfile_path=measfile_rel_path)  # write params from header in object
+    EKF.set_cal_params(cal_param_file=cal_param_file)
 
-    '''testing pruposes'''
-    tx_freq = EKF.get_tx_freq()
-    print tx_freq
-    EKF.set_cal_params()
+    '''EKF loop'''
+    tracking = True
+    while tracking:
+        try:
+            tracking = False
+            # TODO: use make_plot here
+
+        except KeyboardInterrupt:
+            print ('Localization interrupted by user')
+            tracking = False
+    print('estimator.py stopped!')
+    return True

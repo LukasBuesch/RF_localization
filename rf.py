@@ -105,7 +105,7 @@ class RfEar(object):
     def check_calparamsavailable(self):
         return self.__bcalparamsavailable
 
-    def set_calparams(self, txalpha, txgamma):
+    def set_calparams(self, txalpha, txgamma):  # TODO: check usage of this funktion -> wrong cal params
         """
         set tx parameters which were obtained
         :param txalpha:
@@ -670,7 +670,7 @@ class RfEar(object):
         plt.show()
         return SIZE, VAR, MEAN, UPDATE
 
-    def lambertloc(self, rss, numtx=0):
+    def lambertloc(self, rss, numtx=0):  # TODO: check usage -> wrong cal params
         """Inverse function of the RSM. Returns estimated range in [mm].
 
         Keyword arguments:

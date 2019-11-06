@@ -1,4 +1,4 @@
-import rf
+import rf  # comment this out when using a pc without SDR libaries
 import rf_tools
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +6,7 @@ import matplotlib.mlab as mlab
 from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
-import gantry_control
+import gantry_control  # comment this out when using pc without serial control libaries
 import estimator as est
 
 t.time()
@@ -83,7 +83,7 @@ def position_estimation(filename=None, cal_param_file=None):
     else:
         measfile_rel_path = hc_tools.select_file(functionname='position estimation')
 
-    est.main(measfile_rel_path, cal_param_file)
+    est.main(measfile_rel_path, cal_param_file, True)
 
 
 if __name__ == '__main__':
