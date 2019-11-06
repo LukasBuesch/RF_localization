@@ -140,20 +140,20 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, set_model_type='log', cal_param_from_file=None):
+    def __init__(self, set_model_type='log', cal_param_file=None):
         """
         Initialize EKF object
 
         :param set_model_type: lin or log
-        :param cal_param_from_file: get lambda and gamma from file (param gives relative path) or use default
+        :param cal_param_file: get lambda and gamma from file (param gives relative path) or use default
         :param
         :param
         """
         self.__model_type = set_model_type
-        self.__cal_param_from_file = cal_param_from_file
+        self.cal_param_file = cal_param_file
         self.__tx_freq = []
         self.__tx_pos = []
-        self.__tx_alpha = []
+        self.__tx_lambda = []
         self.__tx_gamma = []
 
 
@@ -167,25 +167,27 @@ class Extended_Kalman_Filter(object):
         if self.__model_type == 'log':
             """ parameter for log model """
 
-            if self.__cal_param_from_file is not None: # TODO: is there a write cal_param_file function ?
-                (self.__tx_alpha, self.__tx_gamma) = rf_tools.get_cal_param_from_file(param_filename=cal_param_from_file) # TODO: check function -> give in cal_param_from_file the path
-                print('Take alpha/gamma from cal-file')
-                print('alpha = ' + str(self.__tx_alpha))
+            if self.cal_param_file is not None:
+                (self.__tx_lambda, self.__tx_gamma) = rf_tools.get_cal_param_from_file(param_filename=self.cal_param_file)
+                print('Take lambda/gamma from cal-file')
+                print('lambda = ' + str(self.__tx_lambda))
                 print('gamma = ' + str(self.__tx_gamma))
 
             else:  # TODO: set new params as default
 
-                self.__tx_alpha = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441,
+                self.__tx_lambda = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441,
                                    0.013228415946149144,
                                    0.010212580857184312, 0.010286057191882235]
                 self.__tx_gamma = [-0.49471304043015696, -1.2482393190627841, -0.17291318936462172,
                                    -0.61587988305564456,
                                    0.99831151034040444, 0.85711994311461936]
-                print('Used default values for alpha and gamma (change in class if needed)\n')
+                print('Used default values for lambda and gamma (change in class if needed)\n')
 
         elif self.__model_type == 'lin':  # currently no support for linear model type
             """ parameter for linear model """
-            pass
+            print('Currently no support for linear model type!\n'
+                  'Choose model_type == \'log\'')
+            exit()
 
     def set_tx_freq(self, tx_freq):
         self.__tx_freq = tx_freq
@@ -204,8 +206,8 @@ class Extended_Kalman_Filter(object):
     def get_tx_pos(self):
         return self.__tx_pos
 
-    def get_tx_alpha(self):
-        return self.__tx_alpha
+    def get_tx_lambda(self):
+        return self.__tx_lambda
 
     def get_tx_gamma(self):
         return self.__tx_gamma
@@ -247,11 +249,25 @@ class Extended_Kalman_Filter(object):
 
 
 class measurement_simulator(object):
+    """
+    simulates a RSS measurement
+    -> writes values in file
+    """
+    def __init__(self):
+        pass
     pass
 
 
-def main(measfile_rel_path=None):
-    EKF = Extended_Kalman_Filter(cal_param_from_file=None)  # enter cal param filename here
+def main(measfile_rel_path=None, cal_param_file=None):
+    """
+    executive program
+
+    :param measfile_rel_path:
+    :param cal_param_file: just filename (without ending .txt)
+    :return:
+    """
+
+    EKF = Extended_Kalman_Filter(cal_param_file=cal_param_file)
     read_measfile_header(object=EKF, analyze_tx=[1, 2], measfile_path=measfile_rel_path)
 
     '''testing pruposes'''

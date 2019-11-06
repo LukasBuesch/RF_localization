@@ -44,6 +44,14 @@ def analyze_measdata(filename=None):
     return lambda_t, gamma_t
 
 
+def write_cal_param_file(lambda_, gamma_, cal_param_file=None):
+    if cal_param_file is not None:
+        param_filename = path.relpath('Cal_files/' + cal_param_file + '.txt')
+    else:
+        param_filename = hc_tools.save_as_dialog('Save Cal_param_file as...(write_cal_param_file)')
+
+    rf_tools.write_cal_param_to_file(lambda_, gamma_, param_filename)
+
 def check_antennas(show_power_spectrum=False):
     sdr_type = 'NooElec'
     Rf = rf.RfEar(sdr_type, 434.0e6, 1e5)  # for NooElec stick
@@ -69,22 +77,27 @@ def check_antennas(show_power_spectrum=False):
         Rf.plot_txrss_live()
 
 
-def position_estimation(filename=None):
+def position_estimation(filename=None, cal_param_file=None):
     if filename is not None:
         measfile_rel_path = path.relpath('Measurements/' + filename + '.txt')
     else:
         measfile_rel_path = hc_tools.select_file(functionname='position estimation')
 
-    est.main(measfile_rel_path)
+    est.main(measfile_rel_path, cal_param_file)
 
 
 if __name__ == '__main__':
-    # waypoint_file_generating('Waypointlist')  # if no input choose file function active
+    '''
+    start all functions from here
+    '''
+    # waypoint_file_generating('Waypointlist')  # if no input is selected file function active
 
     # start_field_measurement()
 
-    # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input choose file function active
+    # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
-    position_estimation(filename='second_try')  # if no input choose file function active
+    # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
+
+    position_estimation(filename='second_try', cal_param_file='Test_file')  # if no input is selected file function active
 
     # check_antennas(False)

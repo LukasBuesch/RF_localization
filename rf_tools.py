@@ -948,44 +948,37 @@ def onboard_cal_param(tx_pos, measdata_filename='meas_data_wburg.txt', param_fil
     return alpha, gamma
 
 
-def get_cal_param_from_file(param_filename='cal_param.txt'):
-    with open(param_filename, 'r') as param_file:
+def get_cal_param_from_file(param_filename):
+    filename = str('Cal_files/' + param_filename + '.txt')
+    with open(filename, 'r') as param_file:
         param_list = []
         for i, line in enumerate(param_file):
-            param_line = map(float, line[:-2].split(' '))
+            param_line = line
 
             param_list.append(param_line)
 
-    alpha = param_list[0]
-    gamma = param_list[1]
+    lambda_ = param_list[0]
+    gamma_ = param_list[1]
 
-    return alpha, gamma
+    return lambda_, gamma_
 
 
-def lambertloc(rss, alpha, gamma):
+def lambertloc(rss, alpha, gamma):  # TODO: write new function with lambda_ and gamma_ as params
     """Inverse function of the RSM. Returns estimated range in [cm].
 
     Keyword arguments:
     :param rss -- received power values [dB]
     :param alpha
     :param gamma
-    """
+    """  # TODO: implement new inverse RSM model (from Jonas Hoffmeisters B Thesis)
     z = 20 / (np.log(10) * alpha) * lambertw(np.log(10) * alpha / 20 * np.exp(-np.log(10) / 20 * (rss + gamma)))
     return z.real  # [mm]
 
 
-def write_cal_param_to_file(cal_param_file=None):  # TODO: finish this function as first in the morning
-    if cal_param_file is not None:
-        measfile_rel_path = path.relpath('Measurements/' + cal_param_file + '.txt')
-    else:
-        measfile_rel_path = hc_tools.select_file(functionname='write_cal_param_to_file')
-    with open(param_filename, 'r') as param_file:
-        param_list = []
-        for i, line in enumerate(param_file):
-            param_line = map(float, line[:-2].split(' '))
+def write_cal_param_to_file(lambda_, gamma_, param_filename):  #
 
-            param_list.append(param_line)
+    with open(param_filename, 'w') as param_file:
+        param_file.write(str(lambda_) + '\n')
+        param_file.write(str(gamma_) + '\n')
 
-    alpha = param_list[0]
-    gamma = param_list[1]
     return True
