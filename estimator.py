@@ -1,16 +1,7 @@
 import numpy as np
 import rf_tools
-
-"""
-map/track the position of the mobile node using an EKF
-
-    Keyword arguments:
-    :param 
-    :param 
-    :param
-    :param 
-    :param 
-"""
+import hippocampus_toolbox as hc_tools
+import estimator_plot_tools as ept
 
 
 def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=None):
@@ -138,7 +129,7 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
 class Extended_Kalman_Filter(object):
     # FIXME: at first I try to implement the functions of Viktor (great syntax) -> later implement extensions from Jonas
 
-    def __init__(self, set_model_type='log', x_start=[1000, 1000]):
+    def __init__(self, set_model_type='log', x_start=[1000, 1000], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100):
         """
         Initialize EKF object
 
@@ -155,25 +146,25 @@ class Extended_Kalman_Filter(object):
         self.__tx_param = []
 
         """ initialize EKF """  # TODO: copied from Viktor change values and syntax
-        self.__x_est_0 = np.array([[x0[0]], [x0[1]]]).reshape((2, 1))
+        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]]).reshape((2, 1))
         self.__x_est = self.__x_est_0
         # standard deviations
-        self.__sig_x1 = 500
-        self.__sig_x2 = 500
+        self.__sig_x1 = sig_x1
+        self.__sig_x2 = sig_x2
         self.__p_mat_0 = np.array(np.diag([self.__sig_x1 ** 2, self.__sig_x2 ** 2]))
         self.__p_mat = self.__p_mat_0
 
         # process noise  # TODO: use better model
-        self.__sig_w1 = 100
-        self.__sig_w2 = 100
+        self.__sig_w1 = sig_w1
+        self.__sig_w2 = sig_w2
         self.__q_mat = np.array(np.diag([self.__sig_w1 ** 2, self.__sig_w2 ** 2]))
 
         # initial values and system dynamic (=eye)
-        self.__i_mat = np.eye(2)
+        self.__i_mat = None
 
-        self.__z_meas = np.zeros(self.__tx_num)
-        self.__y_est = np.zeros(self.__tx_num)
-        self.__r_dist = np.zeros(self.__tx_num)
+        self.__z_meas = None
+        self.__y_est = None
+        self.__r_dist = None
 
     '''
     parameter access
@@ -209,13 +200,9 @@ class Extended_Kalman_Filter(object):
 
             else:  # TODO: set new params as default
 
-                self.__tx_lambda = [0.011100059337162281, 0.014013732682386724, 0.011873535003719441,
-                                    0.013228415946149144,
-                                    0.010212580857184312, 0.010286057191882235]
-                self.__tx_gamma = [-0.49471304043015696, -1.2482393190627841, -0.17291318936462172,
-                                   -0.61587988305564456,
-                                   0.99831151034040444, 0.85711994311461936]
-                print('Used default values for lambda and gamma (change in class if needed)\n')
+                self.__tx_lambda = [-0.0199179, -0.0185479]
+                self.__tx_gamma = [-5.9438, -8.1549]
+                print('Used default values for lambda and gamma (set cal_param_file if needed)\n')
 
         elif self.__model_type == 'lin':  # currently no support for linear model type
             """ parameter for linear model """
@@ -235,6 +222,22 @@ class Extended_Kalman_Filter(object):
         self.__tx_num = tx_num
         return True
 
+    def set_initial_values(self):
+        self.__i_mat = np.eye(2)
+
+        self.__z_meas = np.zeros(self.__tx_num)
+        self.__y_est = np.zeros(self.__tx_num)
+        self.__r_dist = np.zeros(self.__tx_num)
+        return True
+
+    def set_x_0(self, x0):
+        self.__x_est = x0
+        return True
+
+    def set_p_mat_0(self, p0):
+        self.__p_mat = p0
+        return True
+
     '''get params'''
 
     def get_tx_freq(self):
@@ -251,19 +254,6 @@ class Extended_Kalman_Filter(object):
 
     def get_tx_num(self):
         return self.__tx_num
-
-    # Old Block
-    def set_x_0(self, x0):
-        self.__x_est = x0
-        return True
-
-    def set_p_mat_0(self, p0):
-        self.__p_mat = p0
-        return True
-
-    def reset_ekf(self):
-        self.__x_est = self.__x_est_0
-        self.__p_mat = self.__p_mat_0
 
     def get_x_est(self):
         return self.__x_est
@@ -355,6 +345,16 @@ class Extended_Kalman_Filter(object):
         r_mat = r_sig ** 2
         return r_mat
 
+    def reset_ekf(self):
+        self.__x_est = self.__x_est_0
+        self.__p_mat = self.__p_mat_0
+
+    def ekf_prediction(self):
+        pass
+
+    def ekf_update(self):
+        pass
+
 
 class measurement_simulator(object):
     """
@@ -379,11 +379,12 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False):
     """
 
     '''initialize values for EKF'''
-    EKF = Extended_Kalman_Filter()  # initialize object
+    EKF = Extended_Kalman_Filter()  # initialize object ->check initial values in __init__ function
     read_measfile_header(object=EKF, analyze_tx=[1, 2],
                          measfile_path=measfile_rel_path)  # write params from header in object
     EKF.set_cal_params(cal_param_file=cal_param_file)
     EKF.set_tx_param()
+    EKF.set_initial_values()
 
     '''EKF loop'''
     tracking = True
@@ -395,7 +396,7 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False):
         except KeyboardInterrupt:
             print ('Localization interrupted by user')
             tracking = False
-    print('* * * * * *\n'
+    print('\n* * * * * *\n'
           'estimator.py stopped!\n'
           '* * * * * *\n')
     return True

@@ -216,7 +216,7 @@ class ExtendedKalmanFilter(object):
 
     def ekf_prediction(self):
         """ prediction """
-        self.__x_est = self.__x_est  # + np.random.randn(2, 1) * 1  # = I * x_est
+        self.__x_est = self.__x_est
         self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat
         return True
 
