@@ -1,3 +1,4 @@
+# coding=utf-8
 """
 Die Simulation einer sendenden Antenne und einer mobilen empfangenden Antenne,
 welche sich zueinander verdrehen (und verschieben, welches aber durch
@@ -378,7 +379,7 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     # tx_h = np.array([600, 600, 600, 600, 600, 600])
 
 
-    '''Berechnung von n und D'''
+    '''Berechnung von n und D'''  # TODO: verstehen, was er hier macht -> wofür die Werte
     hpbw = 30.0  # 13.0
     hpbwrad = hpbw * np.pi/180
     antenna_D = -172.4 + 191*np.sqrt(0.818+(1.0/hpbw))
@@ -459,7 +460,10 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
         line1sub2, = sub2_pmat.plot(linspace_plotp, ydata_plotp, 'r-')  # Returns a tuple of line objects, thus the comma
         plt.grid()
 
-
+    '''
+    Hier müsste der EKF loop starten 
+    '''
+    # -> TODO: check if statement is true
     for k in range(anz_messpunkte):
         print "\n \n \nDurchlauf Nummer", k
 

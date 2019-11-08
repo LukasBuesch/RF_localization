@@ -3,6 +3,121 @@ import rf_tools
 import hippocampus_toolbox as hc_tools
 import estimator_plot_tools as ept
 
+# TODO: maybe outsource the upper functions to new file
+
+def get_meas_values(object, measfile_path=None):  # TODO: currently working on this funcdtion -> finish it as first
+    """
+
+    :param object:
+    :param measfile_path
+    :return:
+    """
+
+    '''get values from object'''
+    num_tx = object.get_tx_num()
+    analyze_tx = range(1,num_tx,1)
+    txpos = object.get_tx_pos()
+
+    analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
+    print analyze_tx
+
+    if measfile_path is not None:
+        measdata_filename = measfile_path
+    else:
+        measdata_filename = hc_tools.select_file(functionname='get_meas_values')
+
+    with open(measdata_filename, 'r') as measfile:
+        load_description = True
+        load_grid_settings = False
+        load_measdata = False
+        meas_data_append_list = []
+
+        plotdata_mat_lis = []
+
+        totnumwp = 0
+        measured_wp_list = []
+
+        for i, line in enumerate(measfile):
+
+            if line == '### begin grid settings\n':
+                # print('griddata found')
+                load_description = False
+                load_grid_settings = True
+                load_measdata = False
+                continue
+            elif line == '### begin measurement data\n':
+                load_description = False
+                load_grid_settings = False
+                load_measdata = True
+                # print('Measurement data found')
+                continue
+            if load_description:
+                # print('file description')
+                print(line)
+
+            if load_grid_settings and not load_measdata:
+
+
+
+
+    if load_measdata and not load_grid_settings:
+        # print('read measdata')
+
+        totnumwp += 1
+        meas_data_line = map(float, line[:-2].split(' '))
+        meas_data_append_list.append(meas_data_line)
+
+        meas_data_mat_line = np.asarray(meas_data_line)
+
+        measured_wp_list.append(int(meas_data_mat_line[3]))
+        num_tx = int(meas_data_mat_line[4])
+        num_meas = int(meas_data_mat_line[5])
+
+        first_rss = 6 + num_tx
+
+        meas_data_mat_rss = meas_data_mat_line[first_rss:]
+
+        rss_mat_raw = meas_data_mat_rss.reshape([num_tx, num_meas])  # mat_dim: num_tx x num_meas
+
+        def reject_outliers(data, m=5.):
+            d = np.abs(data - np.median(data))
+            mdev = np.median(d)
+            s = d / mdev if mdev else 0.
+            # print('kicked out samples' + str([s < m]))
+            return data[s < m]
+
+        mean = np.zeros([num_tx])
+        var = np.zeros([num_tx])
+        for itx in range(num_tx):
+          rss_mat_row = reject_outliers(rss_mat_raw[itx, :])
+          mean[itx] = np.mean(rss_mat_row)
+          var[itx] = np.var(rss_mat_row)
+
+        wp_pos = np.array([meas_data_mat_line[0], meas_data_mat_line[1], meas_data_mat_line[2]])
+
+        # antenna_orientation = np.array([[0.0], [0.64278760968], [0.76604444311]])
+        antenna_orientation = np.array([[0.0], [0.0], [1.0]])
+        # antenna_orientation = np.array([[0], [0.34202014332], [0.93969262078]])  # todo: check this part -> clean it
+        wp_angles = [0.0] * num_tx * 4
+        for itx in range(num_tx):
+            wp_angles[itx * 4:itx * 4 + 4] = get_angles(np.transpose(wp_pos[0:2][np.newaxis]),  #TODO: search this funktion
+                                                        np.transpose(txpos[itx, 0:2][np.newaxis]),
+                                                        txpos[itx, 2], antenna_orientation, wp_pos[2])
+        wp_angles = np.asarray(wp_angles)
+
+        plotdata_line = np.concatenate((wp_pos, mean, var, wp_angles),
+                                       axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
+        plotdata_mat_lis.append(plotdata_line)
+
+     measfile.close()
+
+
+    plotdata_mat = np.asarray(plotdata_mat_lis)
+    print('plotdata_mat = \n')
+    print plotdata_mat
+
+    return plotdata_mat
+
 
 def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=None):
     """
@@ -130,12 +245,16 @@ class Extended_Kalman_Filter(object):
     # FIXME: at first I try to implement the functions of Viktor (great syntax) -> later implement extensions from Jonas
 
     def __init__(self, set_model_type='log', x_start=[1000, 1000], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100):
+        # TODO: check default values
         """
-        Initialize EKF object
+        initialize EKF class
 
-        :param set_model_type: lin or log
-        :param x_start: assumed starting point  # TODO: check if it's true
-        :param
+        :param set_model_type: lin or log -> currently only log is supported
+        :param x_start: first position entry for EKF -> kidnapped-robot-problem (0,0)
+        :param sig_x1: initial value for P matrix (p_mat) -> uncertainty in x direction
+        :param sig_x2: initial value for P matrix (p_mat) -> uncertainty in y direction
+        :param sig_w1: initial value for Q matrix (q_mat) -> process noise
+        :param sig_w2: initial value for Q matrix (q_mat) -> process noise
         """
         self.__model_type = set_model_type
         self.__tx_freq = []
@@ -148,23 +267,23 @@ class Extended_Kalman_Filter(object):
         """ initialize EKF """  # TODO: copied from Viktor change values and syntax
         self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]]).reshape((2, 1))
         self.__x_est = self.__x_est_0
-        # standard deviations
+        # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
         self.__p_mat_0 = np.array(np.diag([self.__sig_x1 ** 2, self.__sig_x2 ** 2]))
         self.__p_mat = self.__p_mat_0
 
-        # process noise  # TODO: use better model
+        # process noise Q matrix
         self.__sig_w1 = sig_w1
         self.__sig_w2 = sig_w2
         self.__q_mat = np.array(np.diag([self.__sig_w1 ** 2, self.__sig_w2 ** 2]))
 
         # initial values and system dynamic (=eye)
-        self.__i_mat = None
+        self.__i_mat = None  # gradient of f(x) for F matrix
 
-        self.__z_meas = None
-        self.__y_est = None
-        self.__r_dist = None
+        self.__z_meas = None  # measurement matrix
+        self.__y_est = None  # y matrix for expected measurement
+        self.__r_dist = None  # to write estimated distance in
 
     '''
     parameter access
@@ -368,13 +487,14 @@ class measurement_simulator(object):
     pass
 
 
-def main(measfile_rel_path=None, cal_param_file=None, make_plot=False):
+def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=False):
     """
     executive program
 
     :param measfile_rel_path:
     :param cal_param_file: just filename (without ending .txt)
     :param make_plot: decide to use plot by setting boolean
+    :param simulate_meas: decide to simulate meas data by setting boolean
     :return: True
     """
 
@@ -385,6 +505,12 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False):
     EKF.set_cal_params(cal_param_file=cal_param_file)
     EKF.set_tx_param()
     EKF.set_initial_values()
+
+    '''load measurement data'''
+    if not simulate_meas:  # TODO: implement a load measurement function
+        meas_data = get_meas_values(EKF)
+    else:
+        pass
 
     '''EKF loop'''
     tracking = True

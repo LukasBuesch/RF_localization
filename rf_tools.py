@@ -349,7 +349,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
 
                 # antenna_orientation = np.array([[0.0], [0.64278760968], [0.76604444311]])
                 antenna_orientation = np.array([[0.0], [0.0], [1.0]])
-                # antenna_orientation = np.array([[0], [0.34202014332], [0.93969262078]])  # todo: Enter antenna orientation for correct parameter calibration here!
+                # antenna_orientation = np.array([[0], [0.34202014332], [0.93969262078]])  # todo: check this part -> clean it
                 wp_angles = [0.0] * num_tx * 4
                 for itx in range(num_tx):
                     wp_angles[itx * 4:itx * 4 + 4] = get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
