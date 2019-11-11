@@ -164,7 +164,7 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
     return angle_x
 
 
-def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc, h_mauv_anglecalc):
+def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc, h_mauv_anglecalc):  # TODO: check up this function
     dh_anglecalc = h_mauv_anglecalc - h_tx_anglecalc
     r_anglecalc = x_current_anglecalc - tx_pos_anglecalc
     r_abs_anglecalc = np.linalg.norm(r_anglecalc)
