@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation' ,meas_filename='First_sim_meas')
+    simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation' ,meas_filename='First_sim_meas')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 

@@ -7,8 +7,7 @@ from os import path
 t.time()
 
 
-def get_meas_values(object, measfile_path=None,
-                    simulate_meas=None):  # TODO: currently working on this funcdtion -> finish it as first
+def get_meas_values(object, simulate_meas, measfile_path=None):  # TODO: currently working on this funcdtion -> finish it as first
     """
 
     :param object:
@@ -25,7 +24,7 @@ def get_meas_values(object, measfile_path=None,
     print analyze_tx
 
     if measfile_path is not None:
-        measdata_filename = str('Measurements/' + measfile_path + '.txt')
+        measdata_filename = str(measfile_path + '.txt')
     else:
         measdata_filename = hc_tools.select_file(functionname='get_meas_values')
 
@@ -66,7 +65,8 @@ def get_meas_values(object, measfile_path=None,
 
             if simulate_meas:
                 print('The used measuring data are simulated.')
-                plotdata_line = map(np.array, line.split(','))
+                plotdata_line = map(np.array, line.split(','))  # TODO: check up what is happening with plotdata_mat
+                # currently wrong dimension and wrong values
                 plotdata_mat_lis.append(plotdata_line)
 
             else:

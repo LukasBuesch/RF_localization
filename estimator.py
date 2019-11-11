@@ -272,7 +272,7 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
 
     '''load measurement data'''
 
-    meas_data = est_to.get_meas_values(EKF, 'second_try',simulate_meas)
+    meas_data = est_to.get_meas_values(EKF, simulate_meas, 'Simulated_measurements/First_sim_meas')
 
 
     '''EKF loop'''
