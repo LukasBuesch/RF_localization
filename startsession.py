@@ -1,5 +1,6 @@
 import rf  # comment this out when using a pc without SDR libaries
 import rf_tools
+import estimator_tools as est_to
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
@@ -10,6 +11,33 @@ import gantry_control  # comment this out when using pc without serial control l
 import estimator as est
 
 t.time()
+
+
+class TxData(object):
+    def __init__(self, num_tx):
+        if num_tx is 6:
+            self.__freqtx = [434.325e6, 433.89e6, 434.475e6, 434.025e6, 434.62e6, 434.175e6]  # NooElec
+
+            self.__tx_pos = [[770, 432, 0],
+                             [1794, 437, 0],
+                             [2814, 447, 0],
+                             [2824, 1232, 0],
+                             [1789, 1237, 0],
+                             [774, 1227, 0]]
+        elif num_tx is 2:
+            self.__freqtx = [434.325e6, 434.62e6]  # FIXME: change if using not only 2 tx
+
+            self.__tx_pos = [[1120, 1374, 0],  # FIXME: change this if changing tx position
+                             [1370, 1374, 0]]
+        else:
+            print('Check number of TX in TxData object!')
+            exit(1)
+
+    def get_freq_tx(self):
+        return self.__freqtx
+
+    def get_tx_pos(self):
+        return self.__tx_pos
 
 
 def waypoint_file_generating(filename=None):
@@ -34,6 +62,14 @@ def start_field_measurement():
     gc.start_field_measurement_file_select()
 
 
+def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None):
+    TX = TxData(num_tx=tx_num)
+    tx_pos = TX.get_tx_pos()
+    freq_tx = TX.get_freq_tx()
+    est_to.measurement_simulation(tx_pos, freq_tx, way_filename, meas_filename)
+    return True
+
+
 def analyze_measdata(filename=None):
     if filename is not None:
         measfile_rel_path = path.relpath('Measurements/' + filename + '.txt')
@@ -51,6 +87,7 @@ def write_cal_param_file(lambda_, gamma_, cal_param_file=None):
         param_filename = hc_tools.save_as_dialog('Save Cal_param_file as...(write_cal_param_file)')
 
     rf_tools.write_cal_param_to_file(lambda_, gamma_, param_filename)
+
 
 def check_antennas(show_power_spectrum=False):
     sdr_type = 'NooElec'
@@ -79,25 +116,28 @@ def check_antennas(show_power_spectrum=False):
 
 def position_estimation(filename=None, cal_param_file=None):
     if filename is not None:
-        measfile_rel_path = path.relpath('Measurements/' + filename + '.txt')
+        measfile_rel_path = path.relpath(filename + '.txt')
     else:
         measfile_rel_path = hc_tools.select_file(functionname='position estimation')
 
-    est.main(measfile_rel_path, cal_param_file, True)
+    est.main(measfile_rel_path, cal_param_file, False, True)
 
 
 if __name__ == '__main__':
     '''
     start all functions from here
     '''
-    # waypoint_file_generating('Waypointlist')  # if no input is selected file function active
+    # waypoint_file_generating('Waypointlist_for_simulation')  # if no input is selected file function active
 
-    # start_field_measurement()
+    # start_field_measurement()  # initialize start_RFEar with correct values
+
+    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation' ,meas_filename='First_sim_meas')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
 
-    position_estimation(filename='second_try', cal_param_file='Test_file')  # if no input is selected file function active
+    position_estimation(filename='Simulated_measurements/First_sim_meas',
+                        cal_param_file='Test_file')  # if no input is selected file function active
 
     # check_antennas(False)

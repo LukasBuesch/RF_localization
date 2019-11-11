@@ -29,8 +29,9 @@ class Extended_Kalman_Filter(object):
         self.__tx_gamma = []
         self.__tx_num = None
         self.__tx_param = []
+        self.__num_meas = None
 
-        """ initialize EKF """  # TODO: copied from Viktor change values and syntax
+        """ initialize EKF """
         self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]]).reshape((2, 1))
         self.__x_est = self.__x_est_0
         # standard deviations of position P matrix
@@ -99,6 +100,10 @@ class Extended_Kalman_Filter(object):
         self.__tx_freq = tx_freq
         return True
 
+    def set_num_meas(self, num_meas):
+        self.__num_meas = num_meas
+        return True
+
     def set_tx_pos(self, tx_pos):
         self.__tx_pos = tx_pos
         return True
@@ -124,6 +129,9 @@ class Extended_Kalman_Filter(object):
         return True
 
     '''get params'''
+
+    def get_num_meas(self):
+        return self.__num_meas
 
     def get_tx_freq(self):
         return self.__tx_freq
@@ -241,19 +249,9 @@ class Extended_Kalman_Filter(object):
         pass
 
 
-class measurement_simulator(object):
-    """
-    simulates a RSS measurement
-    -> writes values in file or set values directly??
-    """
-
-    def __init__(self):
-        pass
-
-    pass
 
 
-def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=False):
+def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=True):
     """
     executive program
 
@@ -273,21 +271,17 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     EKF.set_initial_values()
 
     '''load measurement data'''
-    if not simulate_meas:  # TODO: implement a load measurement function
-        meas_data = est_to.get_meas_values(EKF, 'second_try')
-    else:
-        pass
+
+    meas_data = est_to.get_meas_values(EKF, 'second_try',simulate_meas)
+
 
     '''EKF loop'''
-    tracking = True
-    while tracking:
-        try:
-            tracking = False
-            # TODO: use make_plot here
+    num_meas = EKF.get_num_meas()
+    for i in range(num_meas):
+        print('\n \n \nnumber of passes:' + str(i))
 
-        except KeyboardInterrupt:
-            print ('Localization interrupted by user')
-            tracking = False
+
+
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'
           '* * * * * *\n')
