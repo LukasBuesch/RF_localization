@@ -5,8 +5,6 @@ import hippocampus_toolbox as hc_tools
 import estimator_plot_tools as ept
 
 
-
-
 class Extended_Kalman_Filter(object):
     # FIXME: at first I try to implement the functions of Viktor (great syntax) -> later implement extensions from Jonas
 
@@ -249,8 +247,6 @@ class Extended_Kalman_Filter(object):
         pass
 
 
-
-
 def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=True):
     """
     executive program
@@ -258,29 +254,27 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     :param measfile_rel_path:
     :param cal_param_file: just filename (without ending .txt)
     :param make_plot: decide to use plot by setting boolean
-    :param simulate_meas: decide to simulate meas data by setting boolean
+    :param simulate_meas: set boolean True if simulated data is used
     :return: True
     """
 
     '''initialize values for EKF'''
     EKF = Extended_Kalman_Filter()  # initialize object ->check initial values in __init__ function
     est_to.read_measfile_header(object=EKF, analyze_tx=[1, 2],
-                         measfile_path=measfile_rel_path)  # write params from header in object
+                                measfile_path=measfile_rel_path)  # write params from header in object
     EKF.set_cal_params(cal_param_file=cal_param_file)
     EKF.set_tx_param()
     EKF.set_initial_values()
 
     '''load measurement data'''
-
-    meas_data = est_to.get_meas_values(EKF, simulate_meas, 'Simulated_measurements/First_sim_meas')
-
+    meas_data = est_to.get_meas_values(EKF, simulate_meas, measfile_rel_path)  # possibly write this data into class
+    # print('meas_data:\n'+str(meas_data))
 
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     for i in range(num_meas):
-        print('\n \n \nnumber of passes:' + str(i))
-
-
+        print('\n \n \nnumber of passes:' + str(i + 1))
+        print meas_data[i][:]
 
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'

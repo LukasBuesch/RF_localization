@@ -379,8 +379,8 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     # tx_h = np.array([600, 600, 600, 600, 600, 600])
 
 
-    '''Berechnung von n und D'''  # TODO: verstehen, was er hier macht -> wofür die Werte
-    hpbw = 30.0  # 13.0
+    '''Berechnung von n und D'''  # TODO: verstehen, was er hier macht -> wofür die Werte -> check paper
+    hpbw = 30.0  # 13.0  # half_power_band_width -> paper der Koreaner (Ueber Kippwinkel)
     hpbwrad = hpbw * np.pi/180
     antenna_D = -172.4 + 191*np.sqrt(0.818+(1.0/hpbw))
     antenna_n = np.log(0.5)/np.log(np.cos(hpbwrad*0.5))

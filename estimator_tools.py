@@ -2,31 +2,26 @@ import numpy as np
 import rf_tools
 import hippocampus_toolbox as hc_tools
 import time as t
+import os
 from os import path
 
 t.time()
 
 
-def get_meas_values(object, simulate_meas, measfile_path=None):  # TODO: currently working on this funcdtion -> finish it as first
+def get_meas_values(object, simulate_meas, measdata_filename=None):  # TODO: currently working on this funcdtion -> finish it as first
     """
 
     :param object:
-    :param measfile_path
+    :param measdata_filename: rel path to measfile
     :return:
     """
 
     '''get values from object'''
     num_tx = object.get_tx_num()
-    analyze_tx = range(1, num_tx, 1)
     txpos = object.get_tx_pos()
 
-    analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
-    print analyze_tx
 
-    if measfile_path is not None:
-        measdata_filename = str(measfile_path + '.txt')
-    else:
-        measdata_filename = hc_tools.select_file(functionname='get_meas_values')
+
 
     with open(measdata_filename, 'r') as measfile:
         load_description = True
@@ -38,6 +33,11 @@ def get_meas_values(object, simulate_meas, measfile_path=None):  # TODO: current
 
         totnumwp = 0
         measured_wp_list = []
+
+        if simulate_meas:
+            print('The used measuring data are simulated.\n')
+        else:
+            print('The used data are from measurements.\n')
 
         for i, line in enumerate(measfile):
 
@@ -60,65 +60,68 @@ def get_meas_values(object, simulate_meas, measfile_path=None):  # TODO: current
             if load_grid_settings and not load_measdata:
                 pass
 
-        if load_measdata and not load_grid_settings:
-            # print('read measdata')
+            if load_measdata and not load_grid_settings:
+                # print('read measdata')
 
-            if simulate_meas:
-                print('The used measuring data are simulated.')
-                plotdata_line = map(np.array, line.split(','))  # TODO: check up what is happening with plotdata_mat
-                # currently wrong dimension and wrong values
-                plotdata_mat_lis.append(plotdata_line)
+                if simulate_meas:
+                    plotdata_line = map(float, line.split(' '))
+                    # currently wrong dimension and wrong values
+                    plotdata_mat_lis.append(plotdata_line)
 
-            else:
-                totnumwp += 1
-                meas_data_line = map(float, line[:-2].split(' '))
-                meas_data_append_list.append(meas_data_line)
+                else:
+                    totnumwp += 1
+                    meas_data_line = map(float, line[:-2].split(' '))
+                    meas_data_append_list.append(meas_data_line)
 
-                meas_data_mat_line = np.asarray(meas_data_line)
+                    meas_data_mat_line = np.asarray(meas_data_line)
 
-                measured_wp_list.append(int(meas_data_mat_line[3]))
-                num_tx = int(meas_data_mat_line[4])
-                num_meas = int(meas_data_mat_line[5])
+                    measured_wp_list.append(int(meas_data_mat_line[3]))
+                    num_tx = int(meas_data_mat_line[4])
+                    num_meas = int(meas_data_mat_line[5])
 
-                first_rss = 6 + num_tx
+                    first_rss = 6 + num_tx
 
-                meas_data_mat_rss = meas_data_mat_line[first_rss:]
+                    meas_data_mat_rss = meas_data_mat_line[first_rss:]
 
-                rss_mat_raw = meas_data_mat_rss.reshape([num_tx, num_meas])  # mat_dim: num_tx x num_meas
+                    rss_mat_raw = meas_data_mat_rss.reshape([num_tx, num_meas])  # mat_dim: num_tx x num_meas
 
-                def reject_outliers(data, m=5.):
-                    d = np.abs(data - np.median(data))
-                    mdev = np.median(d)
-                    s = d / mdev if mdev else 0.
-                    # print('kicked out samples' + str([s < m]))
-                    return data[s < m]
+                    def reject_outliers(data, m=5.):
+                        d = np.abs(data - np.median(data))
+                        mdev = np.median(d)
+                        s = d / mdev if mdev else 0.
+                        # print('kicked out samples' + str([s < m]))
+                        return data[s < m]
 
-                mean = np.zeros([num_tx])
-                var = np.zeros([num_tx])
-                for itx in range(num_tx):
-                    rss_mat_row = reject_outliers(rss_mat_raw[itx, :])
-                    mean[itx] = np.mean(rss_mat_row)
-                    var[itx] = np.var(rss_mat_row)
+                    mean = np.zeros([num_tx])
+                    var = np.zeros([num_tx])
+                    for itx in range(num_tx):
+                        rss_mat_row = reject_outliers(rss_mat_raw[itx, :])
+                        mean[itx] = np.mean(rss_mat_row)
+                        var[itx] = np.var(rss_mat_row)
 
-                wp_pos = np.array([meas_data_mat_line[0], meas_data_mat_line[1], meas_data_mat_line[2]])
+                    wp_pos = np.array([meas_data_mat_line[0], meas_data_mat_line[1], meas_data_mat_line[2]])
 
-                antenna_orientation = np.array([[0.0], [0.0], [1.0]])
+                    antenna_orientation = np.array([[0.0], [0.0], [1.0]])
 
-                wp_angles = [0.0] * num_tx * 4
-                for itx in range(num_tx):  # TODO: check this function (from Jonas)
-                    wp_angles[itx * 4:itx * 4 + 4] = rf_tools.get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
-                                                                         np.transpose(txpos[itx, 0:2][np.newaxis]),
-                                                                         txpos[itx, 2], antenna_orientation, wp_pos[2])
-                wp_angles = np.asarray(wp_angles)
+                    wp_angles = [0.0] * num_tx * 4
+                    for itx in range(num_tx):  # TODO: check this function (from Jonas)
+                        pass
+                        # wp_angles[itx * 4:itx * 4 + 4] = rf_tools.get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
+                        #                                                      np.transpose(txpos[itx, 0:2][np.newaxis]),
+                        #                                                      txpos[itx, 2], antenna_orientation, wp_pos[2])
+                    wp_angles = np.asarray(wp_angles)
 
-                plotdata_line = np.concatenate((wp_pos, mean, var, wp_angles),
-                                               axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
+                    plotdata_line = np.concatenate((wp_pos, mean, var, wp_angles),
+                                                   axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
 
-                plotdata_mat_lis.append(plotdata_line)
+                    plotdata_mat_lis.append(plotdata_line)
+                    # print plotdata_mat_lis
 
     plotdata_mat = np.asarray(plotdata_mat_lis)
-    print('plotdata_mat = \n')
-    print plotdata_mat
+    # print('plotdata_mat_list = ')
+    # print plotdata_mat_lis
+    # print('plotdata_mat = \n')
+    # print plotdata_mat
 
     return plotdata_mat
 
@@ -138,6 +141,10 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
         measdata_filename = measfile_path
     else:
         measdata_filename = hc_tools.select_file(functionname='read_measfile_header')
+
+    if os.stat(str(measdata_filename)).st_size == 0:
+        print('Chosen file is empty.')
+        exit(1)
 
     with open(measdata_filename, 'r') as measfile:
         load_description = True
@@ -233,15 +240,15 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
                 totnumwp += 1
 
 
-        '''
-        write data into object
-        '''
-        object.set_tx_freq(freqtx)
-        object.set_tx_pos(txpos_list)
-        object.set_tx_num(len(freqtx))
-        object.set_num_meas(totnumwp)
+    '''
+    write data into object
+    '''
+    object.set_tx_freq(freqtx)
+    object.set_tx_pos(txpos_list)
+    object.set_tx_num(len(freqtx))
+    object.set_num_meas(totnumwp)
 
-        return True
+    return True
 
 
 def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
@@ -342,11 +349,12 @@ def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
         measfile.write('### begin measurement data\n')
         print wp_data_mat.shape[0]
         for i in range(wp_data_mat.shape[0]):  # TODO: simulate values
-            wp_pos = wp_data_mat[i][1:4]
+            wp_pos = wp_data_mat[i][1:4]  # needed for error plots
             mean = 1
             var = 1
             wp_angles = 1
 
-            measfile.write(str(wp_pos) + ',' + str(mean) + ',' + str(var) + ',' + str(wp_angles) + '\n')
+            measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' '
+                           + str(mean) + ' ' + str(var) + ' ' + str(wp_angles) + '\n')
 
     return True

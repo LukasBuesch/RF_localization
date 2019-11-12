@@ -1,4 +1,4 @@
-import rf  # comment this out when using a pc without SDR libaries
+import rf  # comment this out when using a pc without SDR libraries
 import rf_tools
 import estimator_tools as est_to
 import numpy as np
@@ -7,7 +7,7 @@ import matplotlib.mlab as mlab
 from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
-import gantry_control  # comment this out when using pc without serial control libaries
+import gantry_control  # comment this out when using pc without serial control libraries
 import estimator as est
 
 t.time()
@@ -15,6 +15,10 @@ t.time()
 
 class TxData(object):
     def __init__(self, num_tx):
+        """
+        change positions and frequencies of tx antennas here
+        :param num_tx: number of used tx antennas
+        """
         if num_tx is 6:
             self.__freqtx = [434.325e6, 433.89e6, 434.475e6, 434.025e6, 434.62e6, 434.175e6]  # NooElec
 
@@ -25,9 +29,9 @@ class TxData(object):
                              [1789, 1237, 0],
                              [774, 1227, 0]]
         elif num_tx is 2:
-            self.__freqtx = [434.325e6, 434.62e6]  # FIXME: change if using not only 2 tx
+            self.__freqtx = [434.325e6, 434.62e6]
 
-            self.__tx_pos = [[1120, 1374, 0],  # FIXME: change this if changing tx position
+            self.__tx_pos = [[1120, 1374, 0],
                              [1370, 1374, 0]]
         else:
             print('Check number of TX in TxData object!')
@@ -114,13 +118,17 @@ def check_antennas(show_power_spectrum=False):
         Rf.plot_txrss_live()
 
 
-def position_estimation(filename=None, cal_param_file=None):
+def position_estimation(filename=None, cal_param_file=None, sym_meas=None):
     if filename is not None:
-        measfile_rel_path = path.relpath(filename + '.txt')
+        if sym_meas is True:
+            measfile_rel_path = path.relpath('Simulated_measurements/' + filename + '.txt')
+        else:
+            measfile_rel_path = path.relpath('Measurements/' + filename + '.txt')
+
     else:
         measfile_rel_path = hc_tools.select_file(functionname='position estimation')
 
-    est.main(measfile_rel_path, cal_param_file, False, True)
+    est.main(measfile_rel_path, cal_param_file, False, simulate_meas=sym_meas)
 
 
 if __name__ == '__main__':
@@ -131,13 +139,13 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation' ,meas_filename='First_sim_meas')
+    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='First_sim_meas')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
 
-    position_estimation(filename='Simulated_measurements/First_sim_meas',
-                        cal_param_file='Test_file')  # if no input is selected file function active
+    position_estimation(filename='First_sim_meas',
+                        cal_param_file='Test_file', sym_meas=True)  # if no input is selected file function active
 
     # check_antennas(False)
