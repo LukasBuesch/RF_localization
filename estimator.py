@@ -240,8 +240,11 @@ class Extended_Kalman_Filter(object):
         self.__x_est = self.__x_est_0
         self.__p_mat = self.__p_mat_0
 
-    def ekf_prediction(self):
-        pass
+    def ekf_prediction(self):  # TODO:implementation still from Viktor -> add from Jonas
+        """ prediction """
+        self.__x_est = self.__x_est
+        self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat
+        return True
 
     def ekf_update(self):
         pass
@@ -268,7 +271,7 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
 
     '''load measurement data'''
     meas_data = est_to.get_meas_values(EKF, simulate_meas, measfile_rel_path)  # possibly write this data into class
-    # print('meas_data:\n'+str(meas_data))
+    print('meas_data:\n'+str(meas_data))
 
     '''EKF loop'''
     num_meas = EKF.get_num_meas()

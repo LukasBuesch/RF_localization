@@ -8,7 +8,8 @@ from os import path
 t.time()
 
 
-def get_meas_values(object, simulate_meas, measdata_filename=None):  # TODO: currently working on this funcdtion -> finish it as first
+def get_meas_values(object, simulate_meas,
+                    measdata_filename=None):  # TODO: currently working on this funcdtion -> finish it as first
     """
 
     :param object:
@@ -19,9 +20,6 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):  # TODO: cur
     '''get values from object'''
     num_tx = object.get_tx_num()
     txpos = object.get_tx_pos()
-
-
-
 
     with open(measdata_filename, 'r') as measfile:
         load_description = True
@@ -128,14 +126,16 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):  # TODO: cur
 
 def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=None):
     """
+    function writes data from the measurement header to the EKF object
     :param: object: existing object of EKF to write values in
     :param analyze_tx: Number of used tx
     :param measfile_path: relative path to measfile
     :return: True
     """
 
-    analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
+    print('analyze_tx = ')
     print analyze_tx
+    analyze_tx[:] = [x - 1 for x in analyze_tx]  # substract -1 as arrays begin with index 0
 
     if measfile_path is not None:
         measdata_filename = measfile_path
@@ -239,7 +239,6 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
                 # print('read measdata')
                 totnumwp += 1
 
-
     '''
     write data into object
     '''
@@ -249,6 +248,29 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
     object.set_num_meas(totnumwp)
 
     return True
+
+
+def get_distance(x_a, y_a, z_a, x_b, y_b, z_b):
+    dist = ((x_a-x_b)**2 + (y_a-y_b)**2 + (z_a-z_b)**2)**0.5  # build distance vector and makes amount
+    return dist
+
+
+def rss_value_generator(tx_pos, wp_pos, add_noise=True):
+    """
+    generates RSS values for simulation purposes
+    :param tx_pos: position of TX (vector)
+    :param wp_pos: position of simulated receiver antenna
+    :return: rss: simulated RSS value
+    """
+
+    dist = get_distance()
+    rss = -20 * np.log10(dist) + dist * lambda_ti + gamma_ti + np.log10(np.cos(psi_low)) + n_tx * np.log10(
+        np.cos(theta_cap)) + n_rec * np.log10(np.cos(theta_cap + theta_low))
+    if add_noise:
+        tx_sigma = measurement_noise_model(r, theta_cap, psi_low, theta_low)
+        rss += np.random.randn(1)*tx_sigma
+    return rss
+
 
 
 def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
@@ -348,13 +370,21 @@ def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
                        '\n')
         measfile.write('### begin measurement data\n')
         print wp_data_mat.shape[0]
+
+        mean = [1, 1]
+        var = [2, 2]
         for i in range(wp_data_mat.shape[0]):  # TODO: simulate values
             wp_pos = wp_data_mat[i][1:4]  # needed for error plots
-            mean = 1
-            var = 1
+            # for itx in range(numtx):
+            #     mean[itx] = rss_value_generator()  # function that generates a rss mean value for certain distance
+            # var = 1
             wp_angles = 1
 
-            measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' '
-                           + str(mean) + ' ' + str(var) + ' ' + str(wp_angles) + '\n')
+            measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' ')
+            for itx in range(numtx):
+                measfile.write(str(mean[itx]) + ' ')
+            for itx in range(numtx):
+                measfile.write(str(var[itx]) + ' ')
+            measfile.write(str(wp_angles) + '\n')
 
     return True

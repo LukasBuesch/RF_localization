@@ -139,13 +139,13 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='First_sim_meas')
+    simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='second_try_sim')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
 
-    position_estimation(filename='First_sim_meas',
-                        cal_param_file='Test_file', sym_meas=True)  # if no input is selected file function active
+    # position_estimation(filename='second_try',
+    #                     cal_param_file='Test_file', sym_meas=False)  # if no input is selected file function active
 
     # check_antennas(False)
