@@ -1,2 +1,2 @@
-# RF_Localization using SDR
-
+-use startsession.py to start all functions
+- the Extended Kalman Filter is in the estimator.py file

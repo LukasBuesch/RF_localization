@@ -51,14 +51,15 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
                 # print('Measurement data found')
                 continue
             if load_description:
-                # print('file description')
+                found_dis = True
                 print(line)
 
             if load_grid_settings and not load_measdata:
-                pass
+                found_grid = True
+
 
             if load_measdata and not load_grid_settings:
-                # print('read measdata')
+                found_meas = True
 
                 if simulate_meas:
                     plotdata_line = map(float, line.split(' '))
@@ -113,6 +114,10 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
 
                     plotdata_mat_lis.append(plotdata_line)
                     # print plotdata_mat_lis
+
+    if found_dis and found_grid and found_meas is not True:
+        print('Not all data found! -> check file')
+        exit(1)
 
     plotdata_mat = np.asarray(plotdata_mat_lis)
     # print('plotdata_mat_list = ')

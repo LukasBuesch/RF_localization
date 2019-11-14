@@ -8,13 +8,13 @@ import estimator_plot_tools as ept
 class Extended_Kalman_Filter(object):
     # FIXME: at first I try to implement the functions of Viktor (great syntax) -> later implement extensions from Jonas
 
-    def __init__(self, set_model_type='log', x_start=[1000, 1000], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100):
+    def __init__(self, set_model_type='log', x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100):
         # TODO: check default values
         """
         initialize EKF class
 
         :param set_model_type: lin or log -> currently only log is supported
-        :param x_start: first position entry for EKF -> kidnapped-robot-problem (0,0)
+        :param x_start: first position entry for EKF -> kidnapped-robot-problem (0,0,0)
         :param sig_x1: initial value for P matrix (p_mat) -> uncertainty in x direction
         :param sig_x2: initial value for P matrix (p_mat) -> uncertainty in y direction
         -> kidnapped robot problem, first unknown position (somewhere in the tank, possibly in the middle) and very high
@@ -37,13 +37,17 @@ class Extended_Kalman_Filter(object):
         self.__n_rec = 2  # coefficient of rss model for cos
 
         """ initialize EKF """
-        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]]).reshape((2, 1))
+        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])  # , [x_start[2]]]).reshape((3, 1))
+        # TODO: add 3rd dimension to x
         self.__x_est = self.__x_est_0
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
         self.__p_mat_0 = np.array(np.diag([self.__sig_x1 ** 2, self.__sig_x2 ** 2]))
         self.__p_mat = self.__p_mat_0
+
+        # Jacobi matrix of measurement (H)
+        self.__h_jac = []
 
         # process noise Q matrix
         self.__sig_w1 = sig_w1
@@ -206,11 +210,10 @@ class Extended_Kalman_Filter(object):
 
     '''distance model (measurement function)'''
 
-    def h_rss(self, itx):
-        x = self.__x_est
+    def h_rss(self, itx, x):
         tx_pos = self.__tx_param[itx][0]  # position of the transceiver
 
-        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
+        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)  # + (x[2] - tx_pos[2]) ** 2)
 
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
                 + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low)) \
@@ -221,27 +224,40 @@ class Extended_Kalman_Filter(object):
 
     '''jacobian of the measurement function'''  # TODO: old version from Viktor -> edit to Jonas model
 
-    def h_rss_jacobian(self, x, tx_param, model_type):  # FIXME: not worked on it yet
-        tx_pos = tx_param[0]  # position of the transceiver
-        alpha = tx_param[1]
-        # gamma = tx_param[2]  # not used here
+    def h_rss_jacobian(self, itx):  # FIXME: not worked on it yet
+        x = self.__x_est
 
-        R_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
+        h_rss_jac = np.zeros((self.__tx_num, 2))
+        jac_rss_analytic = False  # set bool to solve Jacobi matrix analytically
+        if jac_rss_analytic:
 
-        if model_type == 'log':
             # dh / dx1
-            h_rss_jac_x1 = -20 * (x[0] - tx_pos[0]) / (np.log(10) * R_dist ** 2) - alpha * (x[0] - tx_pos[0]) / R_dist
+            h_rss_jac_x1 = 0
+
             # dh / dx2
-            h_rss_jac_x2 = -20 * (x[1] - tx_pos[1]) / (np.log(10) * R_dist ** 2) - alpha * (x[1] - tx_pos[1]) / R_dist
-        elif model_type == 'lin':
-            # dh /dx1
-            h_rss_jac_x1 = alpha * (x[0] - tx_pos[0]) / R_dist
-            # dh /dx2
-            h_rss_jac_x2 = alpha * (x[1] - tx_pos[1]) / R_dist
+            h_rss_jac_x2 = 0
 
-        h_rss_jac = np.array([[h_rss_jac_x1], [h_rss_jac_x2]])
+            # dh / dx3
+            h_rss_jac_x3 = 0
 
-        return h_rss_jac.reshape((2, 1))
+            h_rss_jac = np.array([[h_rss_jac_x1], [h_rss_jac_x2]])
+
+        else:
+
+            d_xy = 1  # stepsize for approximated calculation -> change if needed
+            print range(self.__tx_num)
+            for i in range(self.__tx_num):
+                y_est_p, r_dist_p = self.h_rss(i, x + np.array([[d_xy], [0]]))
+                y_est_n, r_dist_n = self.h_rss(i, x - np.array([[d_xy], [0]]))
+                c = (y_est_p - y_est_n) / (2 * d_xy)
+                h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
+
+                y_est_p, r_dist_p = self.h_rss(i, x + np.array([[0], [d_xy]]))
+                y_est_n, r_dist_n = self.h_rss(i, x - np.array([[0], [d_xy]]))
+                h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
+
+        self.__h_jac = h_rss_jac
+        return True
 
     def measurement_covariance_model(self, rss_noise_model, r_dist, itx):
         """
@@ -251,11 +267,9 @@ class Extended_Kalman_Filter(object):
         :return: r_mat -- measurement covariance matrix
         """
 
-        ekf_param = [6.5411, 7.5723, 9.5922, 11.8720, 21.6396, 53.6692, 52.0241]
-
         if -35 < rss_noise_model or r_dist <= 100:  # TODO: check values
             r_sig = 100
-            print('~~~~ TO CLOSE! ~~~')
+            print('~Antenna ' + str(itx) + ' is to close!~')
 
         else:
             r_sig = np.exp(-(1.0 / 30.0) * (rss_noise_model + 60.0)) + 0.5  # TODO: check values
@@ -296,21 +310,21 @@ class Extended_Kalman_Filter(object):
         '''iterate through all tx-rss-values'''
         for itx in range(self.__tx_num):
             # estimate measurement from x_est
-            self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
+            self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx, self.__x_est)
             y_tild = self.__z_meas[itx] - self.__y_est[itx]
 
             # estimate measurement noise based on
             r_mat = self.measurement_covariance_model(self.__z_meas[itx], self.__r_dist[itx], itx)
 
-            # calc K-gain
-            h_jac_mat = self.h_rss_jacobian(self.__x_est, self.__tx_param[itx], model_type=self.__model_type)
-            s_mat = np.dot(h_jac_mat.transpose(), np.dot(self.__p_mat, h_jac_mat)) + r_mat  # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, h_jac_mat / s_mat)  # 1/s_scal since s_mat is dim = 1x1
+            # calc K-gain  # TODO: not worked on this part yet
+            self.h_rss_jacobian(itx)  # set Jacobi matrix
+            s_mat = np.dot(self.__h_jac.transpose(), np.dot(self.__p_mat, self.__h_jac)) + r_mat
+            # = H^t * P * H + R
+            k_mat = np.dot(self.__p_mat, self.__h_jac / s_mat)  # 1/s_scal since s_mat is dim = 1x1
 
             self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat, h_jac_mat.transpose())) * self.__p_mat  # = (I-KH)*P
+            self.__p_mat = (self.__i_mat - np.dot(k_mat, self.__h_jac.transpose())) * self.__p_mat  # = (I-KH)*P
 
-            # why is here no term for the P matrix (variance of position)? -> measurement_covariance_model ?
         return True
 
 

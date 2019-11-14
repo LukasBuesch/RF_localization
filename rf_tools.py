@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import curve_fit
 from scipy.special import lambertw
 import socket
+import time as t
 
 import hippocampus_toolbox as hc_tools
 
@@ -952,7 +953,9 @@ def onboard_cal_param(tx_pos, measdata_filename='meas_data_wburg.txt', param_fil
 def get_cal_param_from_file(param_filename):
     filename = str('Cal_files/' + param_filename + '.txt')
     with open(filename, 'r') as param_file:
-        param_list = []
+        load_discription = True
+        load_lambda = False
+        load_gamma = False
         for i, line in enumerate(param_file):
             if line == '###lambda\n':
                 load_lambda = True
@@ -962,6 +965,8 @@ def get_cal_param_from_file(param_filename):
                 load_lambda = False
                 load_gamma = True
                 continue
+            if load_discription:
+                print line
             if load_lambda and not load_gamma:
                 lambda_ = map(float, line[:-2].split(' '))  # [:-2] is needed to avoid TypeError
 
@@ -983,9 +988,15 @@ def lambertloc(rss, alpha, gamma):  # TODO: write new function with lambda_ and 
     return z.real  # [mm]
 
 
-def write_cal_param_to_file(lambda_, gamma_, param_filename):  #
+def write_cal_param_to_file(lambda_, gamma_, param_filename):
+    meas_description = hc_tools.write_descrition(function_name='Cal_param_file')
+    print meas_description
+
+    file_description = ('Calibration parameter file\n' + 'Calibration was performed on ' + t.ctime() + '\n'
+                        + 'Description: ' + meas_description + '\n')
 
     with open(param_filename, 'w') as param_file:
+        param_file.write(file_description)
         param_file.write('###lambda\n')
         for itx in range(0, len(lambda_)):
             param_file.write(str(lambda_[itx]) + ' ')

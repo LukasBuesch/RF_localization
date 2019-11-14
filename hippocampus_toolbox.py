@@ -39,10 +39,10 @@ def select_file(functionname='', myFormats=[('Text file', '*.txt')]):
 
 
 # ======== Writing a description for your file and pass it on:
-def write_descrition():
+def write_descrition(function_name=''):
     root = Tkinter.Tk()
     root.withdraw()  # get rid of the tk-app window in the background
-    textinput = tkSimpleDialog.askstring("Description prompt", "enter your description")
+    textinput = tkSimpleDialog.askstring("Description prompt (" + function_name + ")", "enter your description")
     if textinput is not None:
         print ('You chose: ' + textinput)
     return textinput
