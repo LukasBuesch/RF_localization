@@ -8,8 +8,7 @@ from os import path
 t.time()
 
 
-def get_meas_values(object, simulate_meas,
-                    measdata_filename=None):  # TODO: currently working on this funcdtion -> finish it as first
+def get_meas_values(object, simulate_meas, measdata_filename=None):
     """
 
     :param object:
@@ -154,6 +153,8 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
         meas_data_append_list = []
         totnumwp = 0
         measured_wp_list = []
+        freqtx=[]
+        txpos_list = []
 
         for i, line in enumerate(measfile):
 
@@ -163,18 +164,21 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
                 load_grid_settings = True
                 load_measdata = False
                 continue
+
             elif line == '### begin measurement data\n':
                 load_description = False
                 load_grid_settings = False
                 load_measdata = True
                 # print('Measurement data found')
                 continue
+
             if load_description:
                 # print('file description')
                 print(line)
+                found_dis = True
 
             if load_grid_settings and not load_measdata:
-                # print(line)
+                found_grid = True
 
                 grid_settings = map(float, line[:-2].split(' '))
                 x0 = [grid_settings[0], grid_settings[1], grid_settings[2]]
@@ -236,9 +240,12 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
                 wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)
 
             if load_measdata and not load_grid_settings:
-                # print('read measdata')
+                found_meas = True
                 totnumwp += 1
 
+    if found_dis and found_grid and found_meas is not True:
+        print('Not all data found! -> check file')
+        exit(1)
     '''
     write data into object
     '''
@@ -250,8 +257,8 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
     return True
 
 
-def get_distance(x_a, y_a, z_a, x_b, y_b, z_b):
-    dist = ((x_a-x_b)**2 + (y_a-y_b)**2 + (z_a-z_b)**2)**0.5  # build distance vector and makes amount
+def get_distance(x_a, y_a, z_a, x_b, y_b, z_b):  # TODO: check if needed
+    dist = ((x_a - x_b) ** 2 + (y_a - y_b) ** 2 + (z_a - z_b) ** 2) ** 0.5  # build distance vector and makes amount
     return dist
 
 
@@ -262,15 +269,14 @@ def rss_value_generator(tx_pos, wp_pos, add_noise=True):
     :param wp_pos: position of simulated receiver antenna
     :return: rss: simulated RSS value
     """
-
-    dist = get_distance()
-    rss = -20 * np.log10(dist) + dist * lambda_ti + gamma_ti + np.log10(np.cos(psi_low)) + n_tx * np.log10(
-        np.cos(theta_cap)) + n_rec * np.log10(np.cos(theta_cap + theta_low))
-    if add_noise:
-        tx_sigma = measurement_noise_model(r, theta_cap, psi_low, theta_low)
-        rss += np.random.randn(1)*tx_sigma
-    return rss
-
+    pass
+    # dist = get_distance()
+    # rss = -20 * np.log10(dist) + dist * lambda_ti + gamma_ti + np.log10(np.cos(psi_low)) + n_tx * np.log10(
+    #     np.cos(theta_cap)) + n_rec * np.log10(np.cos(theta_cap + theta_low))
+    # if add_noise:
+    #     tx_sigma = measurement_noise_model(r, theta_cap, psi_low, theta_low)
+    #     rss += np.random.randn(1) * tx_sigma
+    # return rss
 
 
 def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
@@ -350,7 +356,8 @@ def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
     with open(measdata_filename, 'w') as measfile:
 
         # write header to measurement file
-        file_description = 'Measurement file\n' + 'Measurement was taken on ' + t.ctime() + '\n' + 'Description: ' + meas_description + '\n'
+        file_description = ('Measurement simulation file\n' + 'Simulation was performed on ' + t.ctime() + '\n'
+                            + 'Description: ' + meas_description + '\n')
 
         txdata = str(numtx) + ' '
         for itx in range(numtx):

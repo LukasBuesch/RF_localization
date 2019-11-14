@@ -379,7 +379,7 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     # tx_h = np.array([600, 600, 600, 600, 600, 600])
 
 
-    '''Berechnung von n und D'''  # TODO: verstehen, was er hier macht -> wofür die Werte -> check paper
+    '''Berechnung von n und D'''  # TODO: verstehen, was er hier macht -> wofuer die Werte -> check paper
     hpbw = 30.0  # 13.0  # half_power_band_width -> paper der Koreaner (Ueber Kippwinkel)
     hpbwrad = hpbw * np.pi/180
     antenna_D = -172.4 + 191*np.sqrt(0.818+(1.0/hpbw))
@@ -422,13 +422,13 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     # x_est = np.array([[5000.0], [6000.0]])
 
     '''Initialisierung der Liste(n) fuer Plots'''
-    x_est_list = [x_est]
-    rss_list = []
-    x_est_kminus1 = x_est
-    phi_cap_t = [0.0]*tx_num
-    theta_cap_t = [0.0]*tx_num
-    psi_low_t = [0.0]*tx_num
-    theta_low_t = [0.0]*tx_num
+    # x_est_list = [x_est]
+    # rss_list = []
+    # x_est_kminus1 = x_est
+    # phi_cap_t = [0.0]*tx_num
+    # theta_cap_t = [0.0]*tx_num
+    # psi_low_t = [0.0]*tx_num
+    # theta_low_t = [0.0]*tx_num
 
     '''Einstellungen fuer Messwerterzeugung'''
     messung_benutzen = True
@@ -438,27 +438,27 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
 
     extra_plotting = False
     direct_terms = [0.0] * tx_num
-    if extra_plotting:
-        '''Setup fuer Kreisplots'''
-        ekf_plotter = ept.EKF_Plot(tx_pos, bplot_circles=True)
-
-        for i in range(tx_num):
-            direct_terms[i] = np.log10(directivity_r * directivities_t[i])
-
-        '''Setup fuer ytild Plot'''
-        fig_ytild_p = plt.figure(42)
-        sub1_ytild = fig_ytild_p.add_subplot(121)
-        linspace_ploty_txnum = np.linspace(1, tx_num, tx_num)
-        ydata_ploty = np.linspace(-20, 20, tx_num)
-        line1sub1, = sub1_ytild.plot(linspace_ploty_txnum, ydata_ploty, 'r-')  # Returns a tuple of line objects, thus the comma
-        plt.grid()
-
-        '''Setup fuer P Plot'''
-        sub2_pmat = fig_ytild_p.add_subplot(122)
-        linspace_plotp = [1, 2]
-        ydata_plotp = np.linspace(0, 200, 2)
-        line1sub2, = sub2_pmat.plot(linspace_plotp, ydata_plotp, 'r-')  # Returns a tuple of line objects, thus the comma
-        plt.grid()
+    # if extra_plotting:
+    #     '''Setup fuer Kreisplots'''
+    #     ekf_plotter = ept.EKF_Plot(tx_pos, bplot_circles=True)
+    #
+    #     for i in range(tx_num):
+    #         direct_terms[i] = np.log10(directivity_r * directivities_t[i])
+    #
+    #     '''Setup fuer ytild Plot'''
+    #     fig_ytild_p = plt.figure(42)
+    #     sub1_ytild = fig_ytild_p.add_subplot(121)
+    #     linspace_ploty_txnum = np.linspace(1, tx_num, tx_num)
+    #     ydata_ploty = np.linspace(-20, 20, tx_num)
+    #     line1sub1, = sub1_ytild.plot(linspace_ploty_txnum, ydata_ploty, 'r-')  # Returns a tuple of line objects, thus the comma
+    #     plt.grid()
+    #
+    #     '''Setup fuer P Plot'''
+    #     sub2_pmat = fig_ytild_p.add_subplot(122)
+    #     linspace_plotp = [1, 2]
+    #     ydata_plotp = np.linspace(0, 200, 2)
+    #     line1sub2, = sub2_pmat.plot(linspace_plotp, ydata_plotp, 'r-')  # Returns a tuple of line objects, thus the comma
+    #     plt.grid()
 
     '''
     Hier müsste der EKF loop starten 
@@ -478,10 +478,10 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
 
             else:
                 rss[i] = plotdata_mat[wp_index[0][0], 3+i]
-                direct_terms[i] = np.log10(np.cos(psi_low_t[i])) + tx_n[i] * np.log10(np.cos(theta_cap_t[i])) + rx_n[i] * np.log10(np.cos(theta_cap_t[i] + theta_low_t[i]))
+                direct_terms[i] = np.log10(np.cos(psi_low_t[i])) + tx_n[i] * np.log10(np.cos(theta_cap_t[i])) + rx_n[i] * np.log10(np.cos(theta_cap_t[i] + theta_low_t[i]))  # TODO: what is direct terms?
         rss_list.append(rss)
         if k > 2:
-            x_est, p_mat = ekf_prediction(x_est, p_mat, q_mat, x_est_list[-2])
+            x_est, p_mat = ekf_prediction(x_est, p_mat, q_mat, x_est_list[-2])  # TODO: why no EKF_update ?
         else:
             x_est, p_mat = ekf_prediction(x_est, p_mat, q_mat, x_est)
         x_est, p_mat, y_tild, k_mat, h_jac = ekf_update(rss, tx_pos, lambda_t, gamma_t, x_est, p_mat, tx_h, z_mauv, h_mauv, tx_n, rx_n, directivity_r, directivities_t)
@@ -496,50 +496,50 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
 
         x_est_list.append(x_est)
 
-        if extra_plotting:
-            line1sub1.set_ydata(y_tild)
-            sub1_ytild.plot()
-            if not k == 0:
-                an00.remove()
-                an10.remove()
-                an20.remove()
-                an30.remove()
-                an40.remove()
-                an50.remove()
-            an00 = sub1_ytild.annotate(str(rss[0]), xy=(1, y_tild[0]), xytext=(1, y_tild[0]))
-            an10 = sub1_ytild.annotate(str(rss[1]), xy=(2, y_tild[1]), xytext=(2, y_tild[1]))
-            an20 = sub1_ytild.annotate(str(rss[2]), xy=(3, y_tild[2]), xytext=(3, y_tild[2]))
-            an30 = sub1_ytild.annotate(str(rss[3]), xy=(4, y_tild[3]), xytext=(4, y_tild[3]))
-            an40 = sub1_ytild.annotate(str(rss[4]), xy=(5, y_tild[4]), xytext=(5, y_tild[4]))
-            an50 = sub1_ytild.annotate(str(rss[5]), xy=(6, y_tild[5]), xytext=(6, y_tild[5]))
-
-            p_data = np.diag(p_mat)
-            line1sub2.set_ydata(np.diag(p_mat))
-            sub2_pmat.plot()
-            if not k == 0:
-                an01.remove()
-                an11.remove()
-            an01 = sub2_pmat.annotate('X Unsicherheit', xy=(1, np.diag(p_mat)[0]), xytext=(1, np.diag(p_mat)[0]))
-            an11 = sub2_pmat.annotate('Y Unsicherheit', xy=(2, np.diag(p_mat)[1]), xytext=(2, np.diag(p_mat)[1]))
-            fig_ytild_p.canvas.draw()
-            fig_ytild_p.canvas.flush_events()
-
-        if extra_plotting:
-            '''Einzelanalyse der Punkte mit Kreisen'''
-            msg_x_est_temp = x_est
-            # print('x= ' + str(msg_x_est))
-            msg_yaw_rad = 0
-            msg_z_meas = rss
-            msg_y_est = rss
-            msg_next_wp = x_n[k]
-            # print('wp=' + str(msg_next_wp))
-
-            ekf_plotter.add_x_est_to_plot(msg_x_est_temp, msg_yaw_rad)
-            ekf_plotter.update_next_wp(msg_next_wp)
-            ekf_plotter.update_meas_circles(msg_z_meas, lambda_t, gamma_t, direct_terms, msg_y_est, b_plot_yest=False)
-            ekf_plotter.plot_ekf_pos_live(b_yaw=False, b_next_wp=True)
-            plt.show()  # Hier Breakpoint hinsetzen fuer Analyse der punkte
-            # plt.pause(1)
+        # if extra_plotting:
+        #     line1sub1.set_ydata(y_tild)
+        #     sub1_ytild.plot()
+        #     if not k == 0:
+        #         an00.remove()
+        #         an10.remove()
+        #         an20.remove()
+        #         an30.remove()
+        #         an40.remove()
+        #         an50.remove()
+        #     an00 = sub1_ytild.annotate(str(rss[0]), xy=(1, y_tild[0]), xytext=(1, y_tild[0]))
+        #     an10 = sub1_ytild.annotate(str(rss[1]), xy=(2, y_tild[1]), xytext=(2, y_tild[1]))
+        #     an20 = sub1_ytild.annotate(str(rss[2]), xy=(3, y_tild[2]), xytext=(3, y_tild[2]))
+        #     an30 = sub1_ytild.annotate(str(rss[3]), xy=(4, y_tild[3]), xytext=(4, y_tild[3]))
+        #     an40 = sub1_ytild.annotate(str(rss[4]), xy=(5, y_tild[4]), xytext=(5, y_tild[4]))
+        #     an50 = sub1_ytild.annotate(str(rss[5]), xy=(6, y_tild[5]), xytext=(6, y_tild[5]))
+        #
+        #     p_data = np.diag(p_mat)
+        #     line1sub2.set_ydata(np.diag(p_mat))
+        #     sub2_pmat.plot()
+        #     if not k == 0:
+        #         an01.remove()
+        #         an11.remove()
+        #     an01 = sub2_pmat.annotate('X Unsicherheit', xy=(1, np.diag(p_mat)[0]), xytext=(1, np.diag(p_mat)[0]))
+        #     an11 = sub2_pmat.annotate('Y Unsicherheit', xy=(2, np.diag(p_mat)[1]), xytext=(2, np.diag(p_mat)[1]))
+        #     fig_ytild_p.canvas.draw()
+        #     fig_ytild_p.canvas.flush_events()
+        #
+        # if extra_plotting:
+        #     '''Einzelanalyse der Punkte mit Kreisen'''
+        #     msg_x_est_temp = x_est
+        #     # print('x= ' + str(msg_x_est))
+        #     msg_yaw_rad = 0
+        #     msg_z_meas = rss
+        #     msg_y_est = rss
+        #     msg_next_wp = x_n[k]
+        #     # print('wp=' + str(msg_next_wp))
+        #
+        #     ekf_plotter.add_x_est_to_plot(msg_x_est_temp, msg_yaw_rad)
+        #     ekf_plotter.update_next_wp(msg_next_wp)
+        #     ekf_plotter.update_meas_circles(msg_z_meas, lambda_t, gamma_t, direct_terms, msg_y_est, b_plot_yest=False)
+        #     ekf_plotter.plot_ekf_pos_live(b_yaw=False, b_next_wp=True)
+        #     plt.show()  # Hier Breakpoint hinsetzen fuer Analyse der punkte
+        #     # plt.pause(1)
 
     print('\nFertich!\n')
 

@@ -164,7 +164,8 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
     return angle_x
 
 
-def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc, h_mauv_anglecalc):  # TODO: check up this function
+def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc,
+               h_mauv_anglecalc):  # TODO: check up this function
     dh_anglecalc = h_mauv_anglecalc - h_tx_anglecalc
     r_anglecalc = x_current_anglecalc - tx_pos_anglecalc
     r_abs_anglecalc = np.linalg.norm(r_anglecalc)
@@ -613,7 +614,7 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                     ax.set_zlabel('rss_var [dB]')
                     ax.set_title('RSS field variance for TX# ' + str(itx + 1))
 
-            plot_fig4 = True  # plots the errorbar
+            plot_fig4 = False  # plots the errorbar TODO: set this True if needed
             if plot_fig4:
                 fig = plt.figure(4)
                 for itx in analyze_tx:
@@ -953,12 +954,19 @@ def get_cal_param_from_file(param_filename):
     with open(filename, 'r') as param_file:
         param_list = []
         for i, line in enumerate(param_file):
-            param_line = line
+            if line == '###lambda\n':
+                load_lambda = True
+                load_gamma = False
+                continue
+            if line == '###gamma\n':
+                load_lambda = False
+                load_gamma = True
+                continue
+            if load_lambda and not load_gamma:
+                lambda_ = map(float, line[:-2].split(' '))  # [:-2] is needed to avoid TypeError
 
-            param_list.append(param_line)
-
-    lambda_ = param_list[0]
-    gamma_ = param_list[1]
+            if load_gamma and not load_lambda:
+                gamma_ = map(float, line[:-2].split(' '))
 
     return lambda_, gamma_
 
@@ -978,7 +986,11 @@ def lambertloc(rss, alpha, gamma):  # TODO: write new function with lambda_ and 
 def write_cal_param_to_file(lambda_, gamma_, param_filename):  #
 
     with open(param_filename, 'w') as param_file:
-        param_file.write(str(lambda_) + '\n')
-        param_file.write(str(gamma_) + '\n')
+        param_file.write('###lambda\n')
+        for itx in range(0, len(lambda_)):
+            param_file.write(str(lambda_[itx]) + ' ')
+        param_file.write('\n###gamma\n')
+        for itx in range(0, len(gamma_)):
+            param_file.write(str(gamma_[itx]) + ' ')
 
     return True
