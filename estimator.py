@@ -224,7 +224,7 @@ class Extended_Kalman_Filter(object):
 
     '''jacobian of the measurement function'''  # TODO: old version from Viktor -> edit to Jonas model
 
-    def h_rss_jacobian(self, itx):  # FIXME: not worked on it yet
+    def h_rss_jacobian(self, itx):  # FIXME: not working proper
         x = self.__x_est
 
         h_rss_jac = np.zeros((self.__tx_num, 2))
@@ -249,7 +249,6 @@ class Extended_Kalman_Filter(object):
             for i in range(self.__tx_num):
                 y_est_p, r_dist_p = self.h_rss(i, x + np.array([[d_xy], [0]]))
                 y_est_n, r_dist_n = self.h_rss(i, x - np.array([[d_xy], [0]]))
-                c = (y_est_p - y_est_n) / (2 * d_xy)
                 h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
 
                 y_est_p, r_dist_p = self.h_rss(i, x + np.array([[0], [d_xy]]))
