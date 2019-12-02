@@ -196,11 +196,7 @@ def get_distance_1D(x_a, x_b):
 
 # Vektor wird auf Ebene projeziert und Winkel mit main-Vektor gebildet
 def get_angle_v_on_plane(v_x, v_1main, v_2):
-    ''' old
-    g_mat = np.array([[1.0, 0.0], [0.0, 1.0]])
-    g_vec = np.array([[np.dot(v_x.T, v_2)[0][0]], [np.dot(v_x.T, v_1main)[0][0]]])
-    gamma_x = np.linalg.solve(g_mat, g_vec)
-    '''
+
     v_x_proj = np.dot(v_x.T, v_2)[0][0]*v_2 + np.dot(v_x.T, v_1main)[0][0]*v_1main
     if np.linalg.norm(v_x_proj) == 0:
         angle_x = np.pi*0.5

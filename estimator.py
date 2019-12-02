@@ -6,7 +6,6 @@ import estimator_plot_tools as ept
 
 
 class Extended_Kalman_Filter(object):
-    # FIXME: at first I try to implement the functions of Viktor (great syntax) -> later implement extensions from Jonas
 
     def __init__(self, set_model_type='log', x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100):
         # TODO: check default values
@@ -30,16 +29,19 @@ class Extended_Kalman_Filter(object):
         self.__tx_num = None
         self.__tx_param = []
         self.__num_meas = None
-        self.__theta_low = 0  # theta -> inclination angle
-        self.__theta_cap = 0  # Theta -> height angle
-        self.__psi_low = 0  # psi -> polarisation angle
+        self.__theta_low = []  # theta -> inclination angle
+        self.__theta_cap = []  # Theta -> height angle -> always 0 in this application
+        self.__psi_low = []  # psi -> polarisation angle
+        self.__phi_cap = []  # Phi -> twisting angle
         self.__n_tx = 2  # coefficient of rss model for cos
         self.__n_rec = 2  # coefficient of rss model for cos
 
         """ initialize EKF """
-        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])  # , [x_start[2]]]).reshape((3, 1))
-        # TODO: add 3rd dimension to x
+        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])
+        self.__z_TA_0 = x_start[2]  # z position in TA coordinates (from depth sensor -> here simulatet by z-Gantry)
         self.__x_est = self.__x_est_0
+        self.__z_TA = self.__z_TA_0
+        self.get_angles()  # initialize values for angles
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
@@ -125,6 +127,10 @@ class Extended_Kalman_Filter(object):
         self.__theta_cap = theta_cap
         return True
 
+    def set_phi_cap(self, phi_cap):
+        self.__phi_cap = phi_cap
+        return True
+
     def set_psi(self, psi_low):
         self.__psi_low = psi_low
         return True
@@ -174,6 +180,9 @@ class Extended_Kalman_Filter(object):
     def get_theta_cap(self):
         return self.__theta_cap
 
+    def get_phi_cap(self):
+        return self.__phi_cap
+
     def get_psi(self):
         return self.__psi_low
 
@@ -218,9 +227,12 @@ class Extended_Kalman_Filter(object):
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
                 + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low)) \
                 + self.__n_tx * np.log10(np.cos(self.__theta_cap)) \
-                + self.__n_rec * np.log10(np.cos(self.__theta_cap + self.__theta_low))
+                + self.__n_rec * np.log10(np.cos(self.__theta_cap + self.__theta_low))  # see log rules
 
-        return y_rss, r_dist
+        self.__r_dist[itx] = r_dist
+        self.__y_est[itx] = y_rss
+
+        return True
 
     '''jacobian of the measurement function'''  # TODO: old version from Viktor -> edit to Jonas model
 
@@ -258,6 +270,49 @@ class Extended_Kalman_Filter(object):
         self.__h_jac = h_rss_jac
         return True
 
+    def get_angles(self):
+        """
+        estimates angles depending on current position -> set new angles in EKF-class
+        :return: True
+        """
+        phi_cap = []
+        theta_cap = []
+        for i in self.__tx_num:
+            r = self.__x_est - self.__tx_pos[i]
+            r_abs = np.linalg.norm(r)
+            '''Phi -> twisting angle'''
+            phi_cap[i] = np.arccos(r[0][0] / r_abs)
+            if r[1][0] <= 0.0:
+                phi_cap[i] = 2 * np.pi - phi_cap[i]
+
+            '''Theta -> height angle'''
+            theta_cap[i] = 0
+
+            '''rotation matrix G -> R'''
+            S_GR = np.array([[np.cos(phi_cap[i]), -np.sin(phi_cap[i]), 0.0],
+                              [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
+                              [0.0, 0.0, 1.0]]).T  # TODO: why transposed ??
+
+            '''rotation matrix G -> R_prime'''
+            S_GR_prime = np.array(
+                [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]), -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]), -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T  # TODO: Why transposed?
+
+            '''psi -> polarisation angle'''
+            psi_low = est_to.get_angle_v_on_plane(z_mauv, np.array(S_GR_prime[2])[np.newaxis].T, np.array(S_GR_prime[1])[np.newaxis].T)  # TODO: check z_mauv
+
+            '''theta -> inclination angle'''
+            theta_low = est_to.get_angle_v_on_plane(z_mauv, np.array(S_GR[2])[np.newaxis].T, np.array(S_GR[0])[np.newaxis].T)
+
+            '''return values'''
+            self.__phi_cap[i] = phi_cap[i]
+            self.__theta_cap[i] = theta_cap[i]
+            self.__psi_low[i] = psi_low[i]
+            self.__theta_low[i] = theta_low[i]
+
+        return True
+
     def measurement_covariance_model(self, rss_noise_model, r_dist, itx):
         """
         estimate measurement noise based on the received signal strength
@@ -286,7 +341,9 @@ class Extended_Kalman_Filter(object):
 
     def reset_ekf(self):
         self.__x_est = self.__x_est_0
+        self.__z_TA = self.__z_TA_0
         self.__p_mat = self.__p_mat_0
+        self.get_angles()
 
     def ekf_prediction(self):  # FIXME: if necessary use other prediction model
         """ prediction """

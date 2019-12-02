@@ -400,3 +400,23 @@ def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
             measfile.write(str(wp_angles) + '\n')
 
     return True
+
+
+
+def get_angle_v_on_plane(v_x, v_1main, v_2):  # TODO: check this function
+    """
+    Vektor wird auf Ebene projeziert und Winkel mit main-Vektor gebildet
+    :param v_x:
+    :param v_1main:
+    :param v_2:
+    :return:
+    """
+    v_x_proj = np.dot(v_x.T, v_2)[0][0] * v_2 + np.dot(v_x.T, v_1main)[0][0] * v_1main
+    if np.linalg.norm(v_x_proj) == 0:
+        angle_x = np.pi * 0.5
+    elif (np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(v_1main))) > 1:
+        angle_x = np.arccos((np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(
+            v_1main))) - 1e-10)  # -1e-10, da PC gerne etwas mehr als 1 ausrechnet und daher arccos nicht funktioniert.
+    else:
+        angle_x = np.arccos(np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(v_1main)))
+    return angle_x
