@@ -352,7 +352,7 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     anz_messpunkte = len(x_n)
 
     '''Konfiguration der Hoehe und der Antennenverdrehung durch Beschreibung des mobilen Antennenvektors'''
-    h_mauv = 500.0
+    h_mauv = 500.0  # Hoehe der AUV Antenne im Tank (z im Inertialsystem) ??
     # z_mauv = np.array([[0], [0.34202014332], [0.93969262078]])
     z_mauv = np.array([[0.0], [0.0], [100.0]])
     # z_mauv = np.array([[0.0], [0.64278760968], [0.76604444311]])

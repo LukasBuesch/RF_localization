@@ -57,7 +57,6 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
             if load_grid_settings and not load_measdata:
                 found_grid = True
 
-
             if load_measdata and not load_grid_settings:
                 found_meas = True
 
@@ -158,7 +157,7 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
         meas_data_append_list = []
         totnumwp = 0
         measured_wp_list = []
-        freqtx=[]
+        freqtx = []
         txpos_list = []
 
         for i, line in enumerate(measfile):
@@ -402,21 +401,25 @@ def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
     return True
 
 
-
 def get_angle_v_on_plane(v_x, v_1main, v_2):  # TODO: check this function
     """
     Vektor wird auf Ebene projeziert und Winkel mit main-Vektor gebildet
+
     :param v_x:
     :param v_1main:
     :param v_2:
     :return:
     """
-    v_x_proj = np.dot(v_x.T, v_2)[0][0] * v_2 + np.dot(v_x.T, v_1main)[0][0] * v_1main
+    v_x_proj = np.dot(v_x.T, v_2)[0][0] * v_2 + np.dot(v_x.T, v_1main)[0][0] * v_1main  # np.dot -> dot product
     if np.linalg.norm(v_x_proj) == 0:
-        angle_x = np.pi * 0.5
-    elif (np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(v_1main))) > 1:
-        angle_x = np.arccos((np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(
-            v_1main))) - 1e-10)  # -1e-10, da PC gerne etwas mehr als 1 ausrechnet und daher arccos nicht funktioniert.
+        angle_x = np.pi * 0.5  # if dot product = 0 -> angle_x is pi/2
     else:
-        angle_x = np.arccos(np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(v_1main)))
+        cos_angle = np.dot(v_x_proj.T, v_1main)[0][0] / (np.linalg.norm(v_x_proj) * np.linalg.norm(v_1main))
+
+        if cos_angle > 1:
+            angle_x = np.arccos(
+                cos_angle - 1e-10)  # subtract 1e-10 if PC calculates accidental few more than 1 - arccos would not work
+        else:
+            angle_x = np.arccos(cos_angle)
+
     return angle_x
