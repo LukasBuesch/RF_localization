@@ -44,7 +44,6 @@ class Extended_Kalman_Filter(object):
         self.__z_TA = self.__z_TA_0
         self.__alpha = alpha  # inclination angle of RF-plane
         self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
-        self.get_angles()  # initialize values for angles
 
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
@@ -165,6 +164,12 @@ class Extended_Kalman_Filter(object):
         self.__z_meas = np.zeros(self.__tx_num)
         self.__y_est = np.zeros(self.__tx_num)
         self.__r_dist = np.zeros(self.__tx_num)
+
+        self.__psi_low = range(self.__tx_num)
+        self.__phi_cap = range(self.__tx_num)
+        self.__theta_low = range(self.__tx_num)
+        self.__theta_cap = range(self.__tx_num)
+        self.get_angles()  # initialize values for angles
         return True
 
     def set_x_0(self, x0):
@@ -237,21 +242,19 @@ class Extended_Kalman_Filter(object):
 
     '''distance model (measurement function)'''
 
-    def h_rss(self, itx):
-        x = self.__x_est
+    def h_rss(self, itx, x=None):
+        if x is None:
+            x = self.__x_est
         tx_pos = self.__tx_param[itx][0]  # position of the transceiver
 
         r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
 
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
-                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low)) \
-                + self.__n_tx * np.log10(np.cos(self.__theta_cap)) \
-                + self.__n_rec * np.log10(np.cos(self.__theta_cap + self.__theta_low))  # see log rules
+                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])) \
+                + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
+                + self.__n_rec * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
 
-        self.__r_dist[itx] = r_dist
-        self.__y_est[itx] = y_rss
-
-        return True
+        return y_rss, r_dist
 
     '''jacobian of the measurement function'''
 
@@ -260,7 +263,7 @@ class Extended_Kalman_Filter(object):
 
         h_rss_jac = np.zeros((self.__tx_num, 2))
         jac_rss_analytic = False  # set bool to solve Jacobi matrix analytically
-        if jac_rss_analytic:
+        if jac_rss_analytic:  # not supported yet
 
             # dh / dx1
             h_rss_jac_x1 = 0
@@ -276,15 +279,14 @@ class Extended_Kalman_Filter(object):
         else:
 
             d_xy = 1  # stepsize for approximated calculation -> change if needed
-            print range(self.__tx_num)
-            for i in range(self.__tx_num):
-                y_est_p, r_dist_p = self.h_rss(i, x + np.array([[d_xy], [0]]))
-                y_est_n, r_dist_n = self.h_rss(i, x - np.array([[d_xy], [0]]))
-                h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
 
-                y_est_p, r_dist_p = self.h_rss(i, x + np.array([[0], [d_xy]]))
-                y_est_n, r_dist_n = self.h_rss(i, x - np.array([[0], [d_xy]]))
-                h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[d_xy], [0]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[d_xy], [0]]))
+            h_rss_jac[0, itx] = (y_est_p - y_est_n) / (2 * d_xy)
+
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[0], [d_xy]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [d_xy]]))
+            h_rss_jac[1, itx] = (y_est_p - y_est_n) / (2 * d_xy)
 
         self.__h_jac = h_rss_jac
         return True
@@ -296,21 +298,23 @@ class Extended_Kalman_Filter(object):
         """
         phi_cap = []
         theta_cap = []
-        for i in self.__tx_num:
+        psi_low = []
+        theta_low = []
+        for i in range(self.__tx_num):
             r = self.__x_est - self.__tx_pos[i]
             r_abs = np.linalg.norm(r)
             '''Phi -> twisting angle'''
-            phi_cap[i] = np.arccos(r[0][0] / r_abs)
+            phi_cap.append(np.arccos(r[0][0] / r_abs))
             if r[1][0] <= 0.0:
                 phi_cap[i] = 2 * np.pi - phi_cap[i]
 
             '''Theta -> height angle'''
-            theta_cap[i] = 0
+            theta_cap.append(0)
 
             '''rotation matrix G -> R'''
             S_GR = np.array([[np.cos(phi_cap[i]), -np.sin(phi_cap[i]), 0.0],
-                              [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
-                              [0.0, 0.0, 1.0]]).T  # TODO: why transposed ? -> see later at theta and psi
+                             [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
+                             [0.0, 0.0, 1.0]]).T  # TODO: why transposed ? -> see later at theta and psi
 
             '''rotation matrix G -> R_prime'''
             S_GR_prime = np.array(
@@ -321,12 +325,12 @@ class Extended_Kalman_Filter(object):
                  [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T  # TODO: Why transposed?
 
             '''psi -> polarisation angle'''
-            psi_low = est_to.get_angle_v_on_plane(self.__z_UR, np.array(S_GR_prime[2])[np.newaxis].T,
-                                                  np.array(S_GR_prime[1])[np.newaxis].T)
+            psi_low.append(est_to.get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
+                                                       np.array(S_GR_prime[1])[np.newaxis].T))
 
             '''theta -> inclination angle'''
-            theta_low = est_to.get_angle_v_on_plane(self.__z_UR, np.array(S_GR[2])[np.newaxis].T,
-                                                    np.array(S_GR[0])[np.newaxis].T)
+            theta_low.append(est_to.get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR[2])[np.newaxis].T,
+                                                         np.array(S_GR[0])[np.newaxis].T))
 
             '''returning values'''
             self.__phi_cap[i] = phi_cap[i]
@@ -346,9 +350,9 @@ class Extended_Kalman_Filter(object):
         rss_noise_model = self.__z_meas[itx]
         r_dist = self.__r_dist[itx]
 
-        if -35 < rss_noise_model or r_dist <= 100:  # TODO: check values
+        if -35 < rss_noise_model or r_dist >= 1900:
             r_sig = 100
-            print('~Antenna ' + str(itx) + ' is to close!~')
+            print('Meas_Cov_Model: itx = ' + str(itx) + ' r_sig set to ' + str(r_sig))
 
         else:
             r_sig = np.exp(-(1.0 / 30.0) * (rss_noise_model + 60.0)) + 0.5  # TODO: check values
@@ -397,14 +401,17 @@ class Extended_Kalman_Filter(object):
             # estimate measurement noise based on
             r_mat = self.measurement_covariance_model(itx)
 
-            # calc K-gain  # TODO: not worked on this part yet
+            # calc K-gain
             self.h_rss_jacobian(itx)  # set Jacobi matrix
-            s_mat = np.dot(self.__h_jac.transpose(), np.dot(self.__p_mat, self.__h_jac)) + r_mat
+            s_mat = np.dot(self.__h_jac[:, itx].T, np.dot(self.__p_mat, self.__h_jac[:, itx])) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, self.__h_jac / s_mat)  # 1/s_scal since s_mat is dim = 1x1
+            k_mat = np.dot(self.__p_mat, self.__h_jac[:, itx] / s_mat)  # 1/s_scal since s_mat is dim = 1x1
 
-            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat, self.__h_jac.transpose())) * self.__p_mat  # = (I-KH)*P
+            # bug fixing
+            a = k_mat * y_tild
+
+            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild, FIXME: wrong dimension for k*y_tild
+            self.__p_mat = (self.__i_mat - np.dot(k_mat, self.__h_jac[:, itx].T)) * self.__p_mat  # = (I-KH)*P
 
         return True
 
