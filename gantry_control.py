@@ -429,8 +429,8 @@ class GantryControl(object):
         if b_ekf is True:
             # init EKF
             EKF = estimator_old_version.ExtendedKalmanFilter(model_type)
-            import estimator_plot_tools
-            EKF_plotter = estimator_plot_tools.EKF_Plot(EKF.get_tx_pos(), model_type)
+            import estimator_old_version_plot_tools
+            EKF_plotter = estimator_old_version_plot_tools.EKF_Plot(EKF.get_tx_pos(), model_type)
 
         # follow wp sequence
         for wp in wp_list:

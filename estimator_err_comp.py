@@ -196,11 +196,7 @@ def get_distance_1D(x_a, x_b):
 
 # Vektor wird auf Ebene projeziert und Winkel mit main-Vektor gebildet
 def get_angle_v_on_plane(v_x, v_1main, v_2):
-    ''' old
-    g_mat = np.array([[1.0, 0.0], [0.0, 1.0]])
-    g_vec = np.array([[np.dot(v_x.T, v_2)[0][0]], [np.dot(v_x.T, v_1main)[0][0]]])
-    gamma_x = np.linalg.solve(g_mat, g_vec)
-    '''
+
     v_x_proj = np.dot(v_x.T, v_2)[0][0]*v_2 + np.dot(v_x.T, v_1main)[0][0]*v_1main
     if np.linalg.norm(v_x_proj) == 0:
         angle_x = np.pi*0.5
@@ -330,7 +326,10 @@ def ekf_update(z_meas, tx_pos, lambda_t, gamma_t, x_est, p_mat, txh, zmauv, hmau
 """
 executive program
 """
-def main(measfile_path, lambda_t=None, gamma_t=None):
+if __name__ == '__main__':
+
+    lambda_t=None
+    gamma_t=None
 
     np.random.seed(12896)
 
@@ -356,7 +355,7 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     anz_messpunkte = len(x_n)
 
     '''Konfiguration der Hoehe und der Antennenverdrehung durch Beschreibung des mobilen Antennenvektors'''
-    h_mauv = 500.0
+    h_mauv = 500.0  # Hoehe der AUV Antenne im Tank (z im Inertialsystem) ??
     # z_mauv = np.array([[0], [0.34202014332], [0.93969262078]])
     z_mauv = np.array([[0.0], [0.0], [100.0]])
     # z_mauv = np.array([[0.0], [0.64278760968], [0.76604444311]])
@@ -711,3 +710,7 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None,
                     wspace=0.4, hspace=None)
     plt.show()
+
+
+
+

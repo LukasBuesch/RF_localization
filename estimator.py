@@ -1,14 +1,14 @@
 import numpy as np
 import rf_tools
 import estimator_tools as est_to
-import hippocampus_toolbox as hc_tools
 import estimator_plot_tools as ept
+import hippocampus_toolbox as hc_tools
+
 
 
 class Extended_Kalman_Filter(object):
-    # FIXME: at first I try to implement the functions of Viktor (great syntax) -> later implement extensions from Jonas
 
-    def __init__(self, set_model_type='log', x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100):
+    def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100, alpha=0):
         # TODO: check default values
         """
         initialize EKF class
@@ -21,8 +21,9 @@ class Extended_Kalman_Filter(object):
         variance
         :param sig_w1: initial value for Q matrix (q_mat) -> process noise
         :param sig_w2: initial value for Q matrix (q_mat) -> process noise
+        :param alpha: inclination angle of RF-plane
         """
-        self.__model_type = set_model_type
+        self.__model_type = 'log'
         self.__tx_freq = []
         self.__tx_pos = []
         self.__tx_lambda = []
@@ -30,16 +31,21 @@ class Extended_Kalman_Filter(object):
         self.__tx_num = None
         self.__tx_param = []
         self.__num_meas = None
-        self.__theta_low = 0  # theta -> inclination angle
-        self.__theta_cap = 0  # Theta -> height angle
-        self.__psi_low = 0  # psi -> polarisation angle
+        self.__theta_low = []  # theta -> inclination angle
+        self.__theta_cap = []  # Theta -> height angle -> always 0 in this application
+        self.__psi_low = []  # psi -> polarisation angle
+        self.__phi_cap = []  # Phi -> twisting angle
         self.__n_tx = 2  # coefficient of rss model for cos
         self.__n_rec = 2  # coefficient of rss model for cos
 
         """ initialize EKF """
-        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])  # , [x_start[2]]]).reshape((3, 1))
-        # TODO: add 3rd dimension to x
+        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])
+        self.__z_TA_0 = x_start[2]  # z position in TA coordinates (from depth sensor -> here simulatet by z-Gantry)
         self.__x_est = self.__x_est_0
+        self.__z_TA = self.__z_TA_0
+        self.__alpha = alpha  # inclination angle of RF-plane
+        self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
+
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
@@ -47,7 +53,7 @@ class Extended_Kalman_Filter(object):
         self.__p_mat = self.__p_mat_0
 
         # Jacobi matrix of measurement (H)
-        self.__h_jac = []
+        self.__h_jac = np.array([])
 
         # process noise Q matrix
         self.__sig_w1 = sig_w1
@@ -109,6 +115,14 @@ class Extended_Kalman_Filter(object):
         self.__tx_freq = tx_freq
         return True
 
+    def set_alpha(self, alpha):
+        self.__alpha = alpha
+        return True
+
+    def set_z_UR(self, z_UR):
+        self.__z_UR = z_UR
+        return True
+
     def set_n_tx(self, n_tx):
         self.__n_tx = n_tx
         return True
@@ -123,6 +137,10 @@ class Extended_Kalman_Filter(object):
 
     def set_theta_cap(self, theta_cap):
         self.__theta_cap = theta_cap
+        return True
+
+    def set_phi_cap(self, phi_cap):
+        self.__phi_cap = phi_cap
         return True
 
     def set_psi(self, psi_low):
@@ -147,6 +165,12 @@ class Extended_Kalman_Filter(object):
         self.__z_meas = np.zeros(self.__tx_num)
         self.__y_est = np.zeros(self.__tx_num)
         self.__r_dist = np.zeros(self.__tx_num)
+
+        self.__psi_low = range(self.__tx_num)
+        self.__phi_cap = range(self.__tx_num)
+        self.__theta_low = range(self.__tx_num)
+        self.__theta_cap = range(self.__tx_num)
+        self.get_angles()  # initialize values for angles
         return True
 
     def set_x_0(self, x0):
@@ -162,6 +186,12 @@ class Extended_Kalman_Filter(object):
     def get_num_meas(self):
         return self.__num_meas
 
+    def get_alpha(self):
+        return self.__alpha
+
+    def get_z_UR(self):
+        return self.__z_UR
+
     def get_n_tx(self):
         return self.__n_tx
 
@@ -173,6 +203,9 @@ class Extended_Kalman_Filter(object):
 
     def get_theta_cap(self):
         return self.__theta_cap
+
+    def get_phi_cap(self):
+        return self.__phi_cap
 
     def get_psi(self):
         return self.__psi_low
@@ -210,26 +243,28 @@ class Extended_Kalman_Filter(object):
 
     '''distance model (measurement function)'''
 
-    def h_rss(self, itx, x):
+    def h_rss(self, itx, x=None):
+        if x is None:
+            x = self.__x_est
         tx_pos = self.__tx_param[itx][0]  # position of the transceiver
 
-        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)  # + (x[2] - tx_pos[2]) ** 2)
+        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
 
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
-                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low)) \
-                + self.__n_tx * np.log10(np.cos(self.__theta_cap)) \
-                + self.__n_rec * np.log10(np.cos(self.__theta_cap + self.__theta_low))
+                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])) \
+                + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
+                + self.__n_rec * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
 
         return y_rss, r_dist
 
-    '''jacobian of the measurement function'''  # TODO: old version from Viktor -> edit to Jonas model
+    '''jacobian of the measurement function'''
 
-    def h_rss_jacobian(self, itx):  # FIXME: not working proper
+    def h_rss_jacobian(self, itx):
         x = self.__x_est
 
         h_rss_jac = np.zeros((self.__tx_num, 2))
         jac_rss_analytic = False  # set bool to solve Jacobi matrix analytically
-        if jac_rss_analytic:
+        if jac_rss_analytic:  # not supported yet
 
             # dh / dx1
             h_rss_jac_x1 = 0
@@ -245,48 +280,100 @@ class Extended_Kalman_Filter(object):
         else:
 
             d_xy = 1  # stepsize for approximated calculation -> change if needed
-            print range(self.__tx_num)
-            for i in range(self.__tx_num):
-                y_est_p, r_dist_p = self.h_rss(i, x + np.array([[d_xy], [0]]))
-                y_est_n, r_dist_n = self.h_rss(i, x - np.array([[d_xy], [0]]))
-                h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
 
-                y_est_p, r_dist_p = self.h_rss(i, x + np.array([[0], [d_xy]]))
-                y_est_n, r_dist_n = self.h_rss(i, x - np.array([[0], [d_xy]]))
-                h_rss_jac[0, i] = (y_est_p - y_est_n) / (2 * d_xy)
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[d_xy], [0]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[d_xy], [0]]))
+            h_rss_jac[0, itx] = (y_est_p - y_est_n) / (2 * d_xy)
 
-        self.__h_jac = h_rss_jac
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[0], [d_xy]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [d_xy]]))
+            h_rss_jac[1, itx] = (y_est_p - y_est_n) / (2 * d_xy)
+
+        self.__h_jac = np.asarray(h_rss_jac)
         return True
 
-    def measurement_covariance_model(self, rss_noise_model, r_dist, itx):
+    def get_angles(self):
+        """
+        estimates angles depending on current position -> set new angles in EKF-class
+        :return: True
+        """
+        phi_cap = []
+        theta_cap = []
+        psi_low = []
+        theta_low = []
+        for i in range(self.__tx_num):
+            r = self.__x_est - self.__tx_pos[i]
+            r_abs = np.linalg.norm(r)
+            '''Phi -> twisting angle'''
+            phi_cap.append(np.arccos(r[0][0] / r_abs))
+            if r[1][0] <= 0.0:
+                phi_cap[i] = 2 * np.pi - phi_cap[i]
+
+            '''Theta -> height angle'''
+            theta_cap.append(0)
+
+            '''rotation matrix G -> R'''
+            S_GR = np.array([[np.cos(phi_cap[i]), -np.sin(phi_cap[i]), 0.0],
+                             [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
+                             [0.0, 0.0, 1.0]]).T  # TODO: why transposed ? -> see later at theta and psi
+
+            '''rotation matrix G -> R_prime'''
+            S_GR_prime = np.array(
+                [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]),
+                  -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]),
+                  -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T  # TODO: Why transposed?
+
+            '''psi -> polarisation angle'''
+            psi_low.append(est_to.get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
+                                                       np.array(S_GR_prime[1])[np.newaxis].T))
+
+            '''theta -> inclination angle'''
+            theta_low.append(est_to.get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR[2])[np.newaxis].T,
+                                                         np.array(S_GR[0])[np.newaxis].T))
+
+            '''returning values'''
+            self.__phi_cap[i] = phi_cap[i]
+            self.__theta_cap[i] = theta_cap[i]
+            self.__psi_low[i] = psi_low[i]
+            self.__theta_low[i] = theta_low[i]
+
+        return True
+
+    def measurement_covariance_model(self, itx):
         """
         estimate measurement noise based on the received signal strength
-        :param rss_noise_model: measured signal strength
-        :param r_dist:
+
+        :param: itx:
         :return: r_mat -- measurement covariance matrix
         """
+        rss_noise_model = self.__z_meas[itx]
+        r_dist = self.__r_dist[itx]
 
-        if -35 < rss_noise_model or r_dist <= 100:  # TODO: check values
+        if -35 < rss_noise_model or r_dist >= 1900:
             r_sig = 100
-            print('~Antenna ' + str(itx) + ' is to close!~')
+            print('Meas_Cov_Model: itx = ' + str(itx) + ' r_sig set to ' + str(r_sig))
 
         else:
             r_sig = np.exp(-(1.0 / 30.0) * (rss_noise_model + 60.0)) + 0.5  # TODO: check values
 
         '''uncertainty caused by angles'''  # TODO: check values
         if self.__theta_cap != 0.0:  # != statement means is not equal -> returns bool
-            r_sig += abs(self.__theta_cap) ** 2 * 15
+            r_sig += abs(self.__theta_cap[itx]) ** 2 * 15
         if self.__theta_low != 0.0:
-            r_sig += abs(self.__theta_low) ** 2 * 8
+            r_sig += abs(self.__theta_low[itx]) ** 2 * 8
         if self.__psi_low != 0.0:
-            r_sig += abs(self.__psi_low) ** 2 * 8
+            r_sig += abs(self.__psi_low[itx]) ** 2 * 8
 
         r_mat = r_sig ** 2
         return r_mat
 
     def reset_ekf(self):
         self.__x_est = self.__x_est_0
+        self.__z_TA = self.__z_TA_0
         self.__p_mat = self.__p_mat_0
+        self.get_angles()
 
     def ekf_prediction(self):  # FIXME: if necessary use other prediction model
         """ prediction """
@@ -296,8 +383,8 @@ class Extended_Kalman_Filter(object):
 
     def ekf_update(self, meas_data, rss_low_lim=-120):
         self.__z_meas = meas_data[3:3 + self.__tx_num]  # corresponds to rss
-        print('rss = \n')
-        print self.__z_meas
+        print('rss = ')
+        print(str(self.__z_meas) + '\n')
 
         ''' if no valid measurement signal is received, reset ekf '''
         if np.max(self.__z_meas) < rss_low_lim:
@@ -309,33 +396,41 @@ class Extended_Kalman_Filter(object):
         '''iterate through all tx-rss-values'''
         for itx in range(self.__tx_num):
             # estimate measurement from x_est
-            self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx, self.__x_est)
+            self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
             y_tild = self.__z_meas[itx] - self.__y_est[itx]
 
             # estimate measurement noise based on
-            r_mat = self.measurement_covariance_model(self.__z_meas[itx], self.__r_dist[itx], itx)
+            r_mat = self.measurement_covariance_model(itx)
 
-            # calc K-gain  # TODO: not worked on this part yet
+            # calc K-gain
             self.h_rss_jacobian(itx)  # set Jacobi matrix
-            s_mat = np.dot(self.__h_jac.transpose(), np.dot(self.__p_mat, self.__h_jac)) + r_mat
+            s_mat = np.dot(self.__h_jac[:, itx].T, np.dot(self.__p_mat, self.__h_jac[:, itx])) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, self.__h_jac / s_mat)  # 1/s_scal since s_mat is dim = 1x1
+            k_mat = np.dot(self.__p_mat, np.divide(self.__h_jac[:, itx], s_mat).reshape(2, 1))
+            # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
+
+            # bug fixing
+            a = k_mat.T
+            b = self.__h_jac[:, itx]
+            c = a * b
+            d = np.dot(a, b)
 
             self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat, self.__h_jac.transpose())) * self.__p_mat  # = (I-KH)*P
+            self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_jac[:, itx])) * self.__p_mat
+            # = (I-KH)*P
 
         return True
 
 
 def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=True):
     """
-    executive program
+    executive programm
 
     :param measfile_rel_path:
-    :param cal_param_file: just filename (without ending .txt)
-    :param make_plot: decide to use plot by setting boolean
-    :param simulate_meas: set boolean True if simulated data is used
-    :return: True
+    :param cal_param_file:
+    :param make_plot:
+    :param simulate_meas:
+    :return:
     """
 
     '''initialize values for EKF'''
@@ -353,14 +448,14 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     for i in range(num_meas):
-        print('\n \n \nPassage number:' + str(i + 1))
-        print meas_data[i][:]
+        print('\n \n \nPassage number:' + str(i + 1) + '\n')
+        print(str(meas_data[i][:]) + '\n')
 
         EKF.ekf_prediction()
 
         EKF.ekf_update(meas_data[i][:])
 
-        print('x_est = \n')
+        print('x_est = ')
         print EKF.get_x_est()
 
     print('\n* * * * * *\n'
