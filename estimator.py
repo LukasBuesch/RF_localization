@@ -1,8 +1,9 @@
 import numpy as np
 import rf_tools
 import estimator_tools as est_to
-import hippocampus_toolbox as hc_tools
 import estimator_plot_tools as ept
+import hippocampus_toolbox as hc_tools
+
 
 
 class Extended_Kalman_Filter(object):
@@ -52,7 +53,7 @@ class Extended_Kalman_Filter(object):
         self.__p_mat = self.__p_mat_0
 
         # Jacobi matrix of measurement (H)
-        self.__h_jac = []
+        self.__h_jac = np.array([])
 
         # process noise Q matrix
         self.__sig_w1 = sig_w1
@@ -258,7 +259,7 @@ class Extended_Kalman_Filter(object):
 
     '''jacobian of the measurement function'''
 
-    def h_rss_jacobian(self, itx):  # FIXME: not working proper
+    def h_rss_jacobian(self, itx):
         x = self.__x_est
 
         h_rss_jac = np.zeros((self.__tx_num, 2))
@@ -288,7 +289,7 @@ class Extended_Kalman_Filter(object):
             y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [d_xy]]))
             h_rss_jac[1, itx] = (y_est_p - y_est_n) / (2 * d_xy)
 
-        self.__h_jac = h_rss_jac
+        self.__h_jac = np.asarray(h_rss_jac)
         return True
 
     def get_angles(self):
@@ -382,8 +383,8 @@ class Extended_Kalman_Filter(object):
 
     def ekf_update(self, meas_data, rss_low_lim=-120):
         self.__z_meas = meas_data[3:3 + self.__tx_num]  # corresponds to rss
-        print('rss = \n')
-        print self.__z_meas
+        print('rss = ')
+        print(str(self.__z_meas) + '\n')
 
         ''' if no valid measurement signal is received, reset ekf '''
         if np.max(self.__z_meas) < rss_low_lim:
@@ -405,26 +406,31 @@ class Extended_Kalman_Filter(object):
             self.h_rss_jacobian(itx)  # set Jacobi matrix
             s_mat = np.dot(self.__h_jac[:, itx].T, np.dot(self.__p_mat, self.__h_jac[:, itx])) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, self.__h_jac[:, itx] / s_mat)  # 1/s_scal since s_mat is dim = 1x1
+            k_mat = np.dot(self.__p_mat, np.divide(self.__h_jac[:, itx], s_mat).reshape(2, 1))
+            # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
             # bug fixing
-            a = k_mat * y_tild
+            a = k_mat.T
+            b = self.__h_jac[:, itx]
+            c = a * b
+            d = np.dot(a, b)
 
-            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild, FIXME: wrong dimension for k*y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat, self.__h_jac[:, itx].T)) * self.__p_mat  # = (I-KH)*P
+            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
+            self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_jac[:, itx])) * self.__p_mat
+            # = (I-KH)*P
 
         return True
 
 
 def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=True):
     """
-    executive program
+    executive programm
 
     :param measfile_rel_path:
-    :param cal_param_file: just filename (without ending .txt)
-    :param make_plot: decide to use plot by setting boolean
-    :param simulate_meas: set boolean True if simulated data is used
-    :return: True
+    :param cal_param_file:
+    :param make_plot:
+    :param simulate_meas:
+    :return:
     """
 
     '''initialize values for EKF'''
@@ -442,14 +448,14 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     for i in range(num_meas):
-        print('\n \n \nPassage number:' + str(i + 1))
-        print meas_data[i][:]
+        print('\n \n \nPassage number:' + str(i + 1) + '\n')
+        print(str(meas_data[i][:]) + '\n')
 
         EKF.ekf_prediction()
 
         EKF.ekf_update(meas_data[i][:])
 
-        print('x_est = \n')
+        print('x_est = ')
         print EKF.get_x_est()
 
     print('\n* * * * * *\n'

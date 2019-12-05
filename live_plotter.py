@@ -1,6 +1,6 @@
 import socket_server
 import estimator_old_version
-import estimator_plot_tools
+import estimator_old_version_plot_tools
 import numpy as np
 import time as t
 
@@ -10,7 +10,7 @@ import time as t
 """ TX position - origin at Beacon #1 """
 tx_pos = tx_6pos = [[0, 0], [1000, 0], [2000, 0], [2000, 900], [1000, 900], [0, 900]]
 
-ekf_plotter = estimator_plot_tools.EKF_Plot(tx_pos, bplot_circles=False)
+ekf_plotter = estimator_old_version_plot_tools.EKF_Plot(tx_pos, bplot_circles=False)
 
 """
 WARNING!!!!!!

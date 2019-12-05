@@ -12,7 +12,8 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
     """
 
     :param object:
-    :param measdata_filename: rel path to measfile
+    :param simulate_meas:
+    :param measdata_filename:
     :return:
     """
 

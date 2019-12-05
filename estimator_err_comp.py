@@ -326,7 +326,10 @@ def ekf_update(z_meas, tx_pos, lambda_t, gamma_t, x_est, p_mat, txh, zmauv, hmau
 """
 executive program
 """
-def main(measfile_path, lambda_t=None, gamma_t=None):
+if __name__ == '__main__':
+
+    lambda_t=None
+    gamma_t=None
 
     np.random.seed(12896)
 
@@ -707,3 +710,7 @@ def main(measfile_path, lambda_t=None, gamma_t=None):
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None,
                     wspace=0.4, hspace=None)
     plt.show()
+
+
+
+

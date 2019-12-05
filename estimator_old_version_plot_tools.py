@@ -7,8 +7,6 @@ import numpy as np
 import time as t
 
 
-# TODO: not worked on this function yet
-
 class EKF_Plot(object):
     def __init__(self, tx_pos, model_type='log', bplot_circles=True, b_p_cov_plot=False):
         """ setup figure """
@@ -46,10 +44,10 @@ class EKF_Plot(object):
         # y_min = -500.0
         # y_max = 2000.0
 
-        x_min = -1000.0*2
-        x_max = 4000.0*2
-        y_min = -1000.0*2
-        y_max = 3000.0*2
+        x_min = -1000.0
+        x_max = 4000.0
+        y_min = -1000.0
+        y_max = 3000.0
 
         self.__ax1.axis([x_min, x_max, y_min, y_max])
         self.__ax1.axis('equal')
@@ -104,7 +102,7 @@ class EKF_Plot(object):
                 self.__ax1.add_artist(circle_wp[i])
     """
 
-    def update_meas_circles(self, z_meas, alpha, gamma, direct_term, y_est=[], b_plot_yest=False, rsm_model='log'):
+    def update_meas_circles(self, z_meas, alpha, gamma, y_est=[], b_plot_yest=False, rsm_model='log'):
         """
 
         :param z_meas:
@@ -116,15 +114,15 @@ class EKF_Plot(object):
         """
 
         for itx in range(self.__tx_num):
-            z_dist = self.inverse_rsm(z_meas[itx], alpha[itx], gamma[itx], direct_term[itx])
+            z_dist = self.inverse_rsm(z_meas[itx], alpha[itx], gamma[itx], self.__rsm_model_type)
             self.__circle_meas[itx].set_radius(z_dist)
             if b_plot_yest:
-                z_est = self.inverse_rsm(y_est[itx], alpha[itx], gamma[itx], direct_term[itx])
+                z_est = self.inverse_rsm(y_est[itx], alpha[itx], gamma[itx], self.__rsm_model_type)
                 self.__circle_meas_est[itx].set_radius(z_est)
 
                 #print('y_tild=' + str(z_meas-y_est))
 
-    def inverse_rsm(self, rss, alpha, gamma, direct_term):
+    def inverse_rsm(self, rss, alpha, gamma, rsm_model_type):
             """Inverse function of the RSM. Returns estimated range in [mm].
 
             Keyword arguments:
@@ -133,14 +131,19 @@ class EKF_Plot(object):
             :param gamma
             :param rsm_model_type
             """
-            z_dist = -20 / (np.log(10) * alpha) * lambertw(-np.log(10) * alpha / 20 * np.exp(-np.log(10) / 20 * (rss - gamma - direct_term*0)))
-            control_rss = -20 * np.log10(z_dist.real) + z_dist.real * alpha + gamma + direct_term*0
-            # print("RSS-Fehler: " + str(rss-control_rss))
+            # if rsm_model_type == 'log':
+            z_dist = 20 / (np.log(10) * alpha) * lambertw(
+                    np.log(10) * alpha / 20 * np.exp(-np.log(10) / 20 * (rss + gamma)))
+
+            y_rss = -20 * np.log10(r_dist) - alpha * r_dist - gamma
+            # elif rsm_model_type == 'lin':
+            #    z_dist = (rss - gamma) / alpha
+
             return z_dist.real  # [mm]
 
     def add_x_est_to_plot(self, x_est, yaw_rad):
-        # self.__x_list.append([x_est[0], x_est[1]])
-        self.__x_list.append([x_est[0][0], x_est[1][0]])
+        self.__x_list.append([x_est[0], x_est[1]])
+        #self.__x_list.append([x_est[0][0], x_est[0][0]])
         self.__yaw_rad = yaw_rad
 
     def update_next_wp(self, next_wp):
@@ -207,10 +210,10 @@ class EKF_Plot(object):
 
         if b_yaw:
             yaw_arrow = [400 * np.cos(self.__yaw_rad), 400 * np.sin(self.__yaw_rad)]
-            self.__plt_pos_yaw.set_data([x_temp[-1, 0], x_temp[-1, 0]+yaw_arrow[0]], [x_temp[-1, 1], x_temp[-1, 1] + yaw_arrow[1]])
+            self.__plt_pos_yaw.set_data([x_temp[-1, 0], x_temp[-1, 0]+yaw_arrow[0]], [x_temp[-1, 1], x_temp[-1, 1]+yaw_arrow[1]])
 
         if b_next_wp:
-            self.__plt_pos_to_wp.set_data([x_temp[-1, 0], self.__next_wp[0]], [x_temp[-1, 1], self.__next_wp[1]])
+            self.__plt_pos_to_wp.set_data([x_temp[-1, 0], self.__next_wp[0]],[x_temp[-1, 1], self.__next_wp[1]])
 
         self.__fig1.canvas.restore_region(self.__fig1background)
         self.__ax1.draw_artist(self.__plt_pos_tail)
@@ -222,10 +225,11 @@ class EKF_Plot(object):
         if self.__bplot_circles:
             for i in range(self.__tx_num):
                 a=1
-                # self.__ax1.draw_artist(self.__circle_meas[i])
-                # self.__ax1.draw_artist(self.__circle_meas_est[i])
+                #self.__ax1.draw_artist(self.__circle_meas[i])
+                #self.__ax1.draw_artist(self.__circle_meas_est[i])
 
-        # self.__fig1.canvas.blit(self.__ax1.bbox)
+
+        self.__fig1.canvas.blit(self.__ax1.bbox)
         # self.__ax1.legend(loc='upper right')
 
         plt.pause(0.001)
