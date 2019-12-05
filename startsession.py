@@ -1,4 +1,4 @@
-import rf  # comment this out when using a pc without SDR libraries
+# import rf  # comment this out when using a pc without SDR libraries
 import rf_tools
 import estimator_tools as est_to
 import numpy as np
@@ -7,7 +7,7 @@ import matplotlib.mlab as mlab
 from os import path
 import time as t
 import hippocampus_toolbox as hc_tools
-import gantry_control  # comment this out when using pc without serial control libraries
+# import gantry_control  # comment this out when using pc without serial control libraries
 import estimator as est
 
 t.time()
