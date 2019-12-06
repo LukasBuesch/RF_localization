@@ -5,7 +5,6 @@ import estimator_plot_tools as ept
 import hippocampus_toolbox as hc_tools
 
 
-
 class Extended_Kalman_Filter(object):
 
     def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100, alpha=0):
@@ -40,12 +39,12 @@ class Extended_Kalman_Filter(object):
 
         """ initialize EKF """
         self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])
-        self.__z_TA_0 = x_start[2]  # z position in TA coordinates (from depth sensor -> here simulatet by z-Gantry)
         self.__x_est = self.__x_est_0
-        self.__z_TA = self.__z_TA_0
+        self.__z_est = x_start[2]
+        self.__z_depth = 0  # z position in SR coordinates (from depth sensor -> here simulated by z-Gantry)
         self.__alpha = alpha  # inclination angle of RF-plane
         self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
-
+        # TODO: check vector
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
@@ -181,6 +180,11 @@ class Extended_Kalman_Filter(object):
         self.__p_mat = p0
         return True
 
+    def set_z_depth(self, z_depth):
+        self.__z_depth = z_depth
+        return True
+
+
     '''get params'''
 
     def get_num_meas(self):
@@ -236,6 +240,9 @@ class Extended_Kalman_Filter(object):
 
     def get_y_est(self):
         return self.__y_est
+
+    def get_z_est(self):
+        return self.__z_est
 
     '''
     EKF functions
@@ -371,7 +378,6 @@ class Extended_Kalman_Filter(object):
 
     def reset_ekf(self):
         self.__x_est = self.__x_est_0
-        self.__z_TA = self.__z_TA_0
         self.__p_mat = self.__p_mat_0
         self.get_angles()
 
@@ -409,15 +415,18 @@ class Extended_Kalman_Filter(object):
             k_mat = np.dot(self.__p_mat, np.divide(self.__h_jac[:, itx], s_mat).reshape(2, 1))
             # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
-            # bug fixing
-            a = k_mat.T
-            b = self.__h_jac[:, itx]
-            c = a * b
-            d = np.dot(a, b)
-
             self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
             self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_jac[:, itx])) * self.__p_mat
             # = (I-KH)*P
+
+        '''determine z_TA position'''
+        z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
+        z_depth_prime = self.__z_depth - z_offset
+        z_est = np.cos(self.__alpha) * z_depth_prime + np.tan(self.__alpha) * (self.__x_est[0]
+                                                                               + np.sin(self.__alpha) * z_depth_prime)
+        # calculates intersection of gradient from x_est with the depth in TA coordinates
+
+        self.__z_est = z_est
 
         return True
 
@@ -451,12 +460,17 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
         print('\n \n \nPassage number:' + str(i + 1) + '\n')
         print(str(meas_data[i][:]) + '\n')
 
+        # setting depth value from wp position to simulate depth sensor
+        EKF.set_z_depth(meas_data[i][2])
+
         EKF.ekf_prediction()
 
         EKF.ekf_update(meas_data[i][:])
 
         print('x_est = ')
-        print EKF.get_x_est()
+        print(str(EKF.get_x_est()) + '\n')
+        print('z_est = ')
+        print(str(EKF.get_z_est()) + '\n')
 
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'

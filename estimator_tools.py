@@ -18,8 +18,6 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
     """
 
     '''get values from object'''
-    num_tx = object.get_tx_num()
-    txpos = object.get_tx_pos()
 
     with open(measdata_filename, 'r') as measfile:
         load_description = True
@@ -101,15 +99,15 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
 
                     antenna_orientation = np.array([[0.0], [0.0], [1.0]])
 
-                    wp_angles = [0.0] * num_tx * 4
-                    for itx in range(num_tx):  # TODO: check this function (from Jonas)
-                        pass
-                        # wp_angles[itx * 4:itx * 4 + 4] = rf_tools.get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
-                        #                                                      np.transpose(txpos[itx, 0:2][np.newaxis]),
-                        #                                                      txpos[itx, 2], antenna_orientation, wp_pos[2])
-                    wp_angles = np.asarray(wp_angles)
+                    # wp_angles = [0.0] * num_tx * 4
+                    # for itx in range(num_tx):  # TODO: check this function (from Jonas)
+                    #     pass
+                    #     # wp_angles[itx * 4:itx * 4 + 4] = rf_tools.get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
+                    #     #                                                      np.transpose(txpos[itx, 0:2][np.newaxis]),
+                    #     #                                                      txpos[itx, 2], antenna_orientation, wp_pos[2])
+                    # wp_angles = np.asarray(wp_angles)
 
-                    plotdata_line = np.concatenate((wp_pos, mean, var, wp_angles),
+                    plotdata_line = np.concatenate((wp_pos, mean, var),
                                                    axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
 
                     plotdata_mat_lis.append(plotdata_line)
@@ -272,9 +270,10 @@ def rss_value_generator(tx_pos, wp_pos, add_noise=True):
     generates RSS values for simulation purposes
     :param tx_pos: position of TX (vector)
     :param wp_pos: position of simulated receiver antenna
+    :param add_noise: set bool to simulate measurement noise
     :return: rss: simulated RSS value
     """
-    pass
+    pass  # TODO: implement simulation -> main problem is to get the values
     # dist = get_distance()
     # rss = -20 * np.log10(dist) + dist * lambda_ti + gamma_ti + np.log10(np.cos(psi_low)) + n_tx * np.log10(
     #     np.cos(theta_cap)) + n_rec * np.log10(np.cos(theta_cap + theta_low))
