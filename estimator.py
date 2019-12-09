@@ -419,7 +419,7 @@ class Extended_Kalman_Filter(object):
             self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_jac[:, itx])) * self.__p_mat
             # = (I-KH)*P
 
-        '''determine z_TA position'''
+        '''determine z_TA position'''  # TODO: think about implementing z position in EKF
         z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
         z_depth_prime = self.__z_depth - z_offset
         z_est = np.cos(self.__alpha) * z_depth_prime + np.tan(self.__alpha) * (self.__x_est[0]

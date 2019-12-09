@@ -1,10 +1,11 @@
-import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-#from matplotlib.patches import Arrow
+# from matplotlib.patches import Arrow
 from scipy.special import lambertw
 import numpy as np
 import time as t
+import matplotlib
+
+matplotlib.use('TkAgg')
 
 
 # TODO: not worked on this function yet
@@ -15,7 +16,7 @@ class EKF_Plot(object):
         self.__tx_pos = tx_pos
         self.__tx_num = len(tx_pos)
         self.__rsm_model_type = model_type
-        #plt.ion()
+        # plt.ion()
         (self.__fig1, self.__ax1) = plt.subplots(1, 1)  # get figure/axis handles
         if b_p_cov_plot:
             (self.__fig2, self.__ax2) = plt.subplots()  # get figure/axis handles
@@ -46,10 +47,10 @@ class EKF_Plot(object):
         # y_min = -500.0
         # y_max = 2000.0
 
-        x_min = -1000.0*2
-        x_max = 4000.0*2
-        y_min = -1000.0*2
-        y_max = 3000.0*2
+        x_min = -1000.0 * 2
+        x_max = 4000.0 * 2
+        y_min = -1000.0 * 2
+        y_max = 3000.0 * 2
 
         self.__ax1.axis([x_min, x_max, y_min, y_max])
         self.__ax1.axis('equal')
@@ -68,7 +69,7 @@ class EKF_Plot(object):
         self.__fig1background = self.__fig1.canvas.copy_from_bbox(self.__ax1.bbox)
 
         self.__plt_pos_tail = self.__ax1.plot(0, 0, 'b.-')[0]
-        #self.__plt_pos = self.__ax1.plot(0, 0, 'ro')[0]
+        # self.__plt_pos = self.__ax1.plot(0, 0, 'ro')[0]
         self.__plt_pos_to_wp = self.__ax1.plot(0, 0, 'go-')[0]
         self.__plt_pos_yaw = self.__ax1.plot(0, 0, 'r-')[0]
 
@@ -80,7 +81,8 @@ class EKF_Plot(object):
                 txpos_single = self.__tx_pos[i]
                 self.__circle_meas.append(plt.Circle((txpos_single[0], txpos_single[1]), 0.1, color='r', fill=False))
 
-                self.__circle_meas_est.append(plt.Circle((txpos_single[0], txpos_single[1]), 0.1, color='g', fill=False))
+                self.__circle_meas_est.append(
+                    plt.Circle((txpos_single[0], txpos_single[1]), 0.1, color='g', fill=False))
 
                 self.__ax1.add_artist(self.__circle_meas[i])
                 self.__ax1.add_artist(self.__circle_meas_est[i])
@@ -90,6 +92,7 @@ class EKF_Plot(object):
         for i in range(self.__tx_num):
             txpos_single = self.__tx_pos[i]
             self.__ax1.plot(txpos_single[0], txpos_single[1], 'ko')
+
     """
     def plot_way_points(self, wp_list=np.array([0,0]), wp_rad=[0], b_plot_circles=False):
         x1_wp = wp_list[:, 0]
@@ -122,10 +125,10 @@ class EKF_Plot(object):
                 z_est = self.inverse_rsm(y_est[itx], alpha[itx], gamma[itx], direct_term[itx])
                 self.__circle_meas_est[itx].set_radius(z_est)
 
-                #print('y_tild=' + str(z_meas-y_est))
+                # print('y_tild=' + str(z_meas-y_est))
 
     def inverse_rsm(self, rss, alpha, gamma, direct_term):
-            """Inverse function of the RSM. Returns estimated range in [mm].
+        """Inverse function of the RSM. Returns estimated range in [mm].
 
             Keyword arguments:
             :param rss -- received power values [dB]
@@ -133,10 +136,11 @@ class EKF_Plot(object):
             :param gamma
             :param rsm_model_type
             """
-            z_dist = -20 / (np.log(10) * alpha) * lambertw(-np.log(10) * alpha / 20 * np.exp(-np.log(10) / 20 * (rss - gamma - direct_term*0)))
-            control_rss = -20 * np.log10(z_dist.real) + z_dist.real * alpha + gamma + direct_term*0
-            # print("RSS-Fehler: " + str(rss-control_rss))
-            return z_dist.real  # [mm]
+        z_dist = -20 / (np.log(10) * alpha) * lambertw(
+            -np.log(10) * alpha / 20 * np.exp(-np.log(10) / 20 * (rss - gamma - direct_term * 0)))
+        control_rss = -20 * np.log10(z_dist.real) + z_dist.real * alpha + gamma + direct_term * 0
+        # print("RSS-Fehler: " + str(rss-control_rss))
+        return z_dist.real  # [mm]
 
     def add_x_est_to_plot(self, x_est, yaw_rad):
         # self.__x_list.append([x_est[0], x_est[1]])
@@ -174,14 +178,14 @@ class EKF_Plot(object):
         plt.pause(0.001)
     """
 
-    def plot_ekf_pos_live(self, b_yaw=True, b_next_wp=True ,b_plot_gantry=False, numofplottedsamples=50):
+    def plot_ekf_pos_live(self, b_yaw=True, b_next_wp=True, b_plot_gantry=False, numofplottedsamples=50):
         """
         This function must be the last plot function due to the ugly 'delete' workaround
         :param numofplottedsamples:
         :return:
         """
         new_time = float(t.time())
-        #self.__ax1.set_title('Vehicle postition [update with ' + str(int(1 / (new_time - self.__act_time))) + ' Hz]')
+        # self.__ax1.set_title('Vehicle postition [update with ' + str(int(1 / (new_time - self.__act_time))) + ' Hz]')
         self.__act_time = new_time
 
         firstdata = 0  # set max number of plotted points
@@ -192,7 +196,7 @@ class EKF_Plot(object):
         if cnt > numofplottedsamples:
             firstdata = cnt - numofplottedsamples
 
-        #self.__ax1.plot(self.__x1_list[-1], self.__x2_list[-1], 'ro',
+        # self.__ax1.plot(self.__x1_list[-1], self.__x2_list[-1], 'ro',
         #                label="x_k= " + str([int(self.__x1_list[-1]), int(self.__x2_list[-1])]))
 
         """
@@ -202,12 +206,13 @@ class EKF_Plot(object):
         """
 
         x_temp = np.array(self.__x_list)
-        self.__plt_pos_tail.set_data(x_temp[firstdata:-1,0], x_temp[firstdata:-1,1])
+        self.__plt_pos_tail.set_data(x_temp[firstdata:-1, 0], x_temp[firstdata:-1, 1])
         # self.__plt_pos.set_data(x_temp[-1,0], x_temp[-1,1])
 
         if b_yaw:
             yaw_arrow = [400 * np.cos(self.__yaw_rad), 400 * np.sin(self.__yaw_rad)]
-            self.__plt_pos_yaw.set_data([x_temp[-1, 0], x_temp[-1, 0]+yaw_arrow[0]], [x_temp[-1, 1], x_temp[-1, 1] + yaw_arrow[1]])
+            self.__plt_pos_yaw.set_data([x_temp[-1, 0], x_temp[-1, 0] + yaw_arrow[0]],
+                                        [x_temp[-1, 1], x_temp[-1, 1] + yaw_arrow[1]])
 
         if b_next_wp:
             self.__plt_pos_to_wp.set_data([x_temp[-1, 0], self.__next_wp[0]], [x_temp[-1, 1], self.__next_wp[1]])
@@ -221,7 +226,7 @@ class EKF_Plot(object):
             self.__ax1.draw_artist(self.__plt_pos_to_wp)
         if self.__bplot_circles:
             for i in range(self.__tx_num):
-                a=1
+                a = 1
                 # self.__ax1.draw_artist(self.__circle_meas[i])
                 # self.__ax1.draw_artist(self.__circle_meas_est[i])
 
@@ -230,3 +235,6 @@ class EKF_Plot(object):
 
         plt.pause(0.001)
 
+
+def waypoint_test_plot():
+    pass
