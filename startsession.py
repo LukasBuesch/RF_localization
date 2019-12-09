@@ -44,9 +44,10 @@ class TxData(object):
         return self.__tx_pos
 
 
-def waypoint_file_generating(filename=None):
+def waypoint_file_generating(filename=None):  # TODO: write function to create a rectangular waypoint path in inclined plane (alpha)
     x0 = [1020, 1147, 0]
-    xn = [1693, 1147, 0]
+    xn = [1693, 1147, 1000]
+
     dxdyda = [100, 0, 0]
 
     if filename is not None:
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     '''
     start all functions from here
     '''
-    # waypoint_file_generating('Waypointlist_for_simulation')  # if no input is selected file function active
+    waypoint_file_generating()  # if no input is selected file function active
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
@@ -145,7 +146,7 @@ if __name__ == '__main__':
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
 
-    position_estimation(filename='second_try',
-                        cal_param_file='Test_file', sym_meas=False)  # if no input is selected file function active
+    # position_estimation(filename='second_try',
+    #                     cal_param_file='Test_file', sym_meas=False)  # if no input is selected file function active
 
     # check_antennas(False)

@@ -14,13 +14,14 @@ independent methods related to the gantry
 """
 
 
-def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 0], timemeas=12.0,
+def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 50], timemeas=12.0,
                  show_plot=False):
     """
+    :param show_plot:
+    :param grid_dxdyda:
     :param wp_filename:
     :param x0: [x0,y0] - start position of the grid
     :param xn: [xn,yn] - end position of the grid
-    :param steps: [numX, numY] - step size
     :param timemeas: - time [s] to wait at each position for measurements
     :return: wp_mat [x, y, t]
     """
