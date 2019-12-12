@@ -7,7 +7,7 @@ import hippocampus_toolbox as hc_tools
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_w1=100, sig_w2=100, alpha=0):
+    def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_z=500, sig_w1=100, sig_w2=100, sig_wz=100, alpha=0):
         # TODO: check default values
         """
         initialize EKF class
@@ -38,9 +38,9 @@ class Extended_Kalman_Filter(object):
         self.__n_rec = 2  # coefficient of rss model for cos
 
         """ initialize EKF """
-        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]]])
+        self.__x_est_0 = np.array([[x_start[0]], [x_start[1]], [x_start[2]]])
         self.__x_est = self.__x_est_0
-        self.__z_est = x_start[2]
+        # self.__z_est = x_start[2]
         self.__z_depth = 0  # z position in SR coordinates (from depth sensor -> here simulated by z-Gantry)
         self.__alpha = alpha  # inclination angle of RF-plane
         self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
@@ -48,7 +48,8 @@ class Extended_Kalman_Filter(object):
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
-        self.__p_mat_0 = np.array(np.diag([self.__sig_x1 ** 2, self.__sig_x2 ** 2]))
+        self.__sig_z = sig_z
+        self.__p_mat_0 = np.array(np.diag([self.__sig_x1 ** 2, self.__sig_x2 ** 2, self.__sig_z ** 2]))
         self.__p_mat = self.__p_mat_0
 
         # Jacobi matrix of measurement (H)
@@ -57,7 +58,8 @@ class Extended_Kalman_Filter(object):
         # process noise Q matrix
         self.__sig_w1 = sig_w1
         self.__sig_w2 = sig_w2
-        self.__q_mat = np.array(np.diag([self.__sig_w1 ** 2, self.__sig_w2 ** 2]))
+        self.__sig_wz = sig_wz
+        self.__q_mat = np.array(np.diag([self.__sig_w1 ** 2, self.__sig_w2 ** 2, self.__sig_wz ** 2]))
 
         # initial values and system dynamic (=eye)
         self.__i_mat = None  # gradient of f(x) for F matrix
@@ -159,7 +161,7 @@ class Extended_Kalman_Filter(object):
         return True
 
     def set_initial_values(self):
-        self.__i_mat = np.eye(2)
+        self.__i_mat = np.eye(3)
 
         self.__z_meas = np.zeros(self.__tx_num)
         self.__y_est = np.zeros(self.__tx_num)
@@ -252,7 +254,7 @@ class Extended_Kalman_Filter(object):
 
     def h_rss(self, itx, x=None):
         if x is None:
-            x = self.__x_est
+            x = self.__x_est[:2]
         tx_pos = self.__tx_param[itx][0]  # position of the transceiver
 
         r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
@@ -267,7 +269,7 @@ class Extended_Kalman_Filter(object):
     '''jacobian of the measurement function'''
 
     def h_rss_jacobian(self, itx):
-        x = self.__x_est
+        x = self.__x_est[:2]
 
         h_rss_jac = np.zeros((self.__tx_num, 2))
         jac_rss_analytic = False  # set bool to solve Jacobi matrix analytically
@@ -309,7 +311,7 @@ class Extended_Kalman_Filter(object):
         psi_low = []
         theta_low = []
         for i in range(self.__tx_num):
-            r = self.__x_est - self.__tx_pos[i]
+            r = self.__x_est[:2] - self.__tx_pos[i]
             r_abs = np.linalg.norm(r)
             '''Phi -> twisting angle'''
             phi_cap.append(np.arccos(r[0][0] / r_abs))
@@ -385,6 +387,7 @@ class Extended_Kalman_Filter(object):
         """ prediction """
         self.__x_est = self.__x_est  # prediction assumes that vehicle holds the position
         self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat  # .dot -> dot product
+
         return True
 
     def ekf_update(self, meas_data, rss_low_lim=-120):
@@ -399,7 +402,7 @@ class Extended_Kalman_Filter(object):
             print('rss' + str(self.__z_meas))
             return True
 
-        '''iterate through all tx-rss-values'''
+        '''iterate through all tx-rss-values and estimate xy position in TA coordinates'''
         for itx in range(self.__tx_num):
             # estimate measurement from x_est
             self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
@@ -410,13 +413,13 @@ class Extended_Kalman_Filter(object):
 
             # calc K-gain
             self.h_rss_jacobian(itx)  # set Jacobi matrix
-            s_mat = np.dot(self.__h_jac[:, itx].T, np.dot(self.__p_mat, self.__h_jac[:, itx])) + r_mat
+            s_mat = np.dot(self.__h_jac[:, itx].T, np.dot(self.__p_mat[:2, :2], self.__h_jac[:, itx])) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, np.divide(self.__h_jac[:, itx], s_mat).reshape(2, 1))
+            k_mat = np.dot(self.__p_mat[:2, :2], np.divide(self.__h_jac[:, itx], s_mat).reshape(2, 1))
             # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
-            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est + k * y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_jac[:, itx])) * self.__p_mat
+            self.__x_est[:2] = self.__x_est[:2] + k_mat * y_tild  # = x_est[:2] + k * y_tild
+            self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_jac[:, itx])) * self.__p_mat[:2, :2]
             # = (I-KH)*P
 
         '''determine z_TA position'''  # TODO: think about implementing z position in EKF
@@ -426,7 +429,7 @@ class Extended_Kalman_Filter(object):
                                                                                + np.sin(self.__alpha) * z_depth_prime)
         # calculates intersection of gradient from x_est with the depth in TA coordinates
 
-        self.__z_est = z_est
+        self.__x_est[2] = z_est
 
         return True
 
@@ -469,8 +472,6 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
 
         print('x_est = ')
         print(str(EKF.get_x_est()) + '\n')
-        print('z_est = ')
-        print(str(EKF.get_z_est()) + '\n')
 
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'

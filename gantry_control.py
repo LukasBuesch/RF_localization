@@ -5,7 +5,7 @@ import time as t
 import serial_control as sc
 import hippocampus_toolbox as hc_tools
 import rf_tools
-import estimator_old_version
+# import estimator_old_version
 import sys
 
 
