@@ -8,7 +8,7 @@ import sys
 class Extended_Kalman_Filter(object):
 
     def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_z=500, sig_w1=100, sig_w2=100, sig_wz=100,
-                 z_depth_sigma=1, alpha=0):
+                 z_depth_sigma=1, alpha=0, inclined_plane=False):
         # TODO: check default values
         """
         initialize EKF class
@@ -24,6 +24,7 @@ class Extended_Kalman_Filter(object):
         :param sig_wz: initial value for Q matrix (q_mat) -> process noise
         :param z_depth_sigma: value for r_mat for measurement of depth z
         :param alpha: inclination angle of RF-plane
+        :param inclined_plane: drive real inclined plane with gantry ? -> True
         """
         self.__model_type = 'log'
         self.__tx_freq = []
@@ -40,6 +41,7 @@ class Extended_Kalman_Filter(object):
         self.__n_tx = 2  # coefficient of rss model for cos
         self.__n_rec = 2  # coefficient of rss model for cos
         self.__z_depth_sigma = z_depth_sigma
+        self.__inclined_plane_real = inclined_plane  # drive real inclined plane with gantry ? -> True
 
         """ initialize EKF """
         self.__x_est_0 = np.array([[x_start[0]], [x_start[1]], [x_start[2]]])
@@ -311,8 +313,14 @@ class Extended_Kalman_Filter(object):
         :return:
         """
         z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
-        z_depth_prime = self.__z_depth - z_offset
-        # calculates intersection of gradient from x_est with the depth in TA coordinates
+
+        if self.__inclined_plane_real:
+            z_depth_prime = self.__z_depth - z_offset
+            # calculates intersection of gradient from x_est with the depth in TA coordinates
+
+        else:
+            z_depth_prime = self.__z_depth / np.cos(self.__alpha) - z_offset
+
         z_est = np.cos(self.__alpha) * z_depth_prime + np.tan(self.__alpha) * (self.__x_est[0]
                                                                                + np.sin(self.__alpha) * z_depth_prime)
 
@@ -323,11 +331,11 @@ class Extended_Kalman_Filter(object):
         h_z_jac = np.zeros(3)
 
         # jacobi should change only for z pos
-        h_z_jac[0] = self.__h_rss_jac[0, self.__tx_num - 1]
-        h_z_jac[1] = self.__h_rss_jac[1, self.__tx_num - 1]
+        h_z_jac[0] = np.tan(self.__alpha)
+        h_z_jac[1] = 0
 
         # jacobi for z position
-        h_z_jac[2] = 1  # TODO: find value
+        h_z_jac[2] = np.cos(self.__alpha) + np.tan(self.__alpha) * np.sin(self.__alpha)
 
         self.__h_z_jac = np.asarray(h_z_jac)
         return True
@@ -342,6 +350,7 @@ class Extended_Kalman_Filter(object):
         psi_low = []
         theta_low = []
         for i in range(self.__tx_num):
+            a = np.transpose(np.asarray(self.__tx_pos[i]))  # FIXME: wrong dimensions -> check why transpose doesnt work
             r = self.__x_est[:2] - self.__tx_pos[i]
             r_abs = np.linalg.norm(r)
             '''Phi -> twisting angle'''
@@ -414,10 +423,13 @@ class Extended_Kalman_Filter(object):
         self.__p_mat = self.__p_mat_0
         self.get_angles()
 
-    def ekf_prediction(self):  # FIXME: if necessary use other prediction model
+    def ekf_prediction(self):  # if necessary use other prediction model
         """ prediction """
         self.__x_est = self.__x_est  # prediction assumes that vehicle holds the position
         self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat  # .dot -> dot product
+
+        # estimate angles
+        self.get_angles()
 
         return True
 
@@ -450,14 +462,14 @@ class Extended_Kalman_Filter(object):
             # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
             self.__x_est[:2] = self.__x_est[:2] + k_mat * y_tild  # = x_est[:2] + k * y_tild
-            self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[:, itx])) * self.__p_mat[:2,
-                                                                                                        :2]
+            self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[:, itx])) * \
+                                   self.__p_mat[:2, :2]
             # = (I-KH)*P
 
         '''determine z_TA position'''
         # estimate intersection from xy position
         z_est = self.h_z_depth()
-        y_tild = z_est  # TODO: find a good way to calculate y_tild
+        y_tild = z_est - self.__x_est[2]  # z_t - h(\mu_bar_t)
 
         # get measurement noise (for z_depth a constant value)
         r_mat = self.__z_depth_sigma ** 2
@@ -472,7 +484,7 @@ class Extended_Kalman_Filter(object):
         a = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
 
         self.__x_est[2] = self.__x_est[2] + k_mat[2] * y_tild  # = x_est[2] + k * y_tild
-        self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat  # TODO: mit Daniel absprechen
+        self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
         # = (I-KH)*P
 
         return True
@@ -498,7 +510,7 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     EKF.set_initial_values()
 
     '''load measurement data'''
-    meas_data = est_to.get_meas_values(EKF, simulate_meas, measfile_rel_path)  # possibly write this data into class
+    meas_data = est_to.get_meas_values(simulate_meas, measfile_rel_path)  # possibly write this data into class
     print('meas_data:\n' + str(meas_data))
 
     '''EKF loop'''

@@ -71,7 +71,8 @@ def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None):
     TX = TxData(num_tx=tx_num)
     tx_pos = TX.get_tx_pos()
     freq_tx = TX.get_freq_tx()
-    est_to.measurement_simulation(tx_pos, freq_tx, way_filename, meas_filename)
+    MS = est_to.MeasurementSimulation(tx_pos, freq_tx, way_filename, meas_filename, alpha=0)
+    MS.measurement_simulation()
     return True
 
 
@@ -140,7 +141,7 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='second_try_sim')
+    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='second_try')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 

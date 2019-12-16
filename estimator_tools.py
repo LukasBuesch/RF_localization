@@ -8,10 +8,249 @@ from os import path
 t.time()
 
 
-def get_meas_values(object, simulate_meas, measdata_filename=None):
+class MeasurementSimulation(object):
+
+    def __init__(self, tx_pos, freqtx, way_filename, meas_filename, alpha):
+        self.__tx_pos = tx_pos
+        self.__freqtx = freqtx
+        self.__numtx = None
+        self.__way_filename = way_filename
+        self.__meas_filename = meas_filename
+        self.__wp = []
+        self.__z_UR = []
+        self.__r_dist = None
+        self.__psi_low = None
+        self.__phi_cap = None
+        self.__theta_low = None
+        self.__theta_cap = None
+        self.__mean = None
+        self.__var = None
+        self.__y_rss = None
+        self.__tx_lambda = None
+        self.__tx_gamma = None
+        self.__n_tx = 2  # coefficient for cos in rss model
+        self.__n_rec = 2  # coefficient for cos in rss model
+        self.__alpha = alpha
+        self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
+
+    def set_init_values(self):
+        self.__r_dist = np.zeros(self.__numtx)
+        self.__psi_low = range(self.__numtx)
+        self.__phi_cap = range(self.__numtx)
+        self.__theta_low = range(self.__numtx)
+        self.__theta_cap = range(self.__numtx)
+        self.get_angles_sym()
+        self.__mean = range(self.__numtx)
+        self.__var = range(self.__numtx)
+        self.__y_rss = range(self.__numtx)
+
+    def get_distance(self):
+        self.__r_dist = ((self.__wp[0] - self.__tx_pos[0]) ** 2 + (self.__wp[1] - self.__tx_pos[1]) ** 2 +
+                         (self.__wp[2] - self.__tx_pos[2]) ** 2) ** 0.5  # build distance vector and makes amount
+        return True
+
+    def set_cal_params(self, cal_param_file=None):
+        if cal_param_file is not None:
+            (self.__tx_lambda, self.__tx_gamma) = rf_tools.get_cal_param_from_file(
+                param_filename=cal_param_file)
+            print('Take lambda/gamma from cal-file')
+            print('lambda = ' + str(self.__tx_lambda))
+            print('gamma = ' + str(self.__tx_gamma))
+
+        else:  # TODO: set new params as default
+            self.__tx_lambda = [-0.0199179, -0.0185479]
+            self.__tx_gamma = [-5.9438, -8.1549]
+            print('Used default values for lambda and gamma (set cal_param_file if needed)\n')
+
+    def rss_value_generator(self, itx):
+        """
+        generates RSS values for simulation purposes
+        :param itx:
+        :param add_noise: set bool to simulate measurement noise
+        :return: rss: simulated RSS value
+        """
+        self.get_distance()
+
+        self.__y_rss[itx] = -20 * np.log10(self.__r_dist) + self.__r_dist * self.__tx_lambda[itx] \
+                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])) \
+                + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
+                + self.__n_rec * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
+
+        return True
+
+    def get_angles_sym(self):
+        """
+        estimates angles depending on current position -> set new angles in EKF-class
+        :return: True
+        """
+        phi_cap = []
+        theta_cap = []
+        psi_low = []
+        theta_low = []
+        for i in range(self.__numtx):
+            r = self.__wp[:2] - self.__tx_pos[i]
+            r_abs = np.linalg.norm(r)
+            '''Phi -> twisting angle'''
+            phi_cap.append(np.arccos(r[0][0] / r_abs))
+            if r[1][0] <= 0.0:
+                phi_cap[i] = 2 * np.pi - phi_cap[i]
+
+            '''Theta -> height angle'''
+            theta_cap.append(0)
+
+            '''rotation matrix G -> R'''
+            S_GR = np.array([[np.cos(phi_cap[i]), -np.sin(phi_cap[i]), 0.0],
+                             [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
+                             [0.0, 0.0, 1.0]]).T
+
+            '''rotation matrix G -> R_prime'''
+            S_GR_prime = np.array(
+                [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]),
+                  -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]),
+                  -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
+
+            '''psi -> polarisation angle'''
+            psi_low.append(get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
+                                                np.array(S_GR_prime[1])[np.newaxis].T))
+
+            '''theta -> inclination angle'''
+            theta_low.append(get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR[2])[np.newaxis].T,
+                                                  np.array(S_GR[0])[np.newaxis].T))
+
+            '''returning values'''
+            self.__phi_cap[i] = phi_cap[i]
+            self.__theta_cap[i] = theta_cap[i]
+            self.__psi_low[i] = psi_low[i]
+            self.__theta_low[i] = theta_low[i]
+
+        return True
+
+    def measurement_simulation(self):
+        """
+        simulates a measurement -> writes header like real measurements and in measdata rss values with variance
+
+        :return:
+        """
+        if self.__way_filename is not None:
+            wplist_filename = path.relpath('Waypoints/' + self.__way_filename + '.txt')
+        else:
+            wplist_filename = hc_tools.select_file(functionname='simulate_field_measurement')
+
+        if self.__meas_filename is not None:
+            measdata_filename = path.relpath('Simulated_measurements/' + self.__meas_filename + '.txt')
+        else:
+            measdata_filename = hc_tools.save_as_dialog()
+        print(measdata_filename)
+
+        meas_description = hc_tools.write_descrition()
+        print meas_description
+
+        self.__numtx = len(self.__freqtx)
+        print('freqtx ' + str(self.__freqtx))
+        print('numtx ' + str(self.__numtx))
+        print('tx_pos ' + str(self.__tx_pos))
+
+        '''get values from waypoint file'''
+        with open(wplist_filename, 'r') as wpfile:
+            load_description = True
+            load_grid_settings = False
+            load_wplist = False
+            wp_append_list = []
+            for i, line in enumerate(wpfile):
+
+                if line == '### begin grid settings\n':
+                    print('griddata found')
+                    load_description = False
+                    load_grid_settings = True
+                    load_wplist = False
+                    continue
+                elif line == '### begin wp_list\n':
+                    load_description = False
+                    load_grid_settings = False
+                    load_wplist = True
+                    print('### found')
+                    continue
+                if load_description:
+                    print('file description')
+                    print(line)
+
+                if load_grid_settings and not load_wplist:
+                    grid_settings = map(float, line.split(' '))
+                    x0 = [grid_settings[0], grid_settings[1], grid_settings[2]]
+                    xn = [grid_settings[3], grid_settings[4], grid_settings[5]]
+                    grid_dxdyda = [grid_settings[6], grid_settings[7], grid_settings[8]]
+                    timemeas = grid_settings[9]
+
+
+
+                    data_shape = []
+                    for i in range(3):  # range(num_dof)
+                        try:
+                            shapei = int((xn[i] - x0[i]) / grid_dxdyda[i] + i)
+                        except ZeroDivisionError:
+                            shapei = 1
+                        data_shape.append(shapei)
+
+                if load_wplist and not load_grid_settings:
+                    # print('read wplist')
+                    wp_append_list.append(map(float, line[:-2].split(' ')))
+
+            num_wp = len(wp_append_list)
+            wp_data_mat = np.asarray(wp_append_list)
+            print('wp_data_mat: ' + str(wp_data_mat))
+
+            wp = range(num_wp)
+            for itx in range(num_wp):
+                wp[itx] = wp_data_mat[:, 1:4]
+            self.__wp = np.asarray(wp)
+
+        '''write values in measurement file'''
+        with open(measdata_filename, 'w') as measfile:
+
+            # write header to measurement file
+            file_description = ('Measurement simulation file\n' + 'Simulation was performed on ' + t.ctime() + '\n'
+                                + 'Description: ' + meas_description + '\n')
+
+            txdata = str(self.__numtx) + ' '
+            for itx in range(self.__numtx):
+                txpos = self.__tx_pos[itx]
+                txdata += str(txpos[0]) + ' ' + str(txpos[1]) + ' ' + str(txpos[2]) + ' '
+            for itx in range(self.__numtx):
+                txdata += str(self.__freqtx[itx]) + ' '
+
+            print('txdata = ' + txdata)
+
+            measfile.write(file_description)
+            measfile.write('### begin grid settings\n')
+            measfile.write(str(x0[0]) + ' ' + str(x0[1]) + ' ' + str(x0[2]) + ' ' +
+                           str(xn[0]) + ' ' + str(xn[1]) + ' ' + str(xn[2]) + ' ' +
+                           str(grid_dxdyda[0]) + ' ' + str(grid_dxdyda[1]) + ' ' + str(grid_dxdyda[2]) + ' ' +
+                           str(timemeas) + ' ' + txdata +
+                           '\n')
+            measfile.write('### begin measurement data\n')
+            print wp_data_mat.shape[0]
+
+            for i in range(wp_data_mat.shape[0]):
+                wp_pos = wp_data_mat[i][1:4]  # needed for error plots
+                self.get_angles_sym()
+                for itx in range(self.__numtx):
+                    self.__mean[itx] = self.rss_value_generator(itx)  # generates a rss value for certain distance
+                    self.__var[itx] = 1  # TODO: find a better way
+
+                measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' ')
+                for itx in range(self.__numtx):
+                    measfile.write(str(self.__mean[itx]) + ' ')
+                for itx in range(self.__numtx):
+                    measfile.write(str(self.__var[itx]) + ' ')
+
+        return True
+
+
+def get_meas_values(simulate_meas, measdata_filename=None):
     """
 
-    :param object:
     :param simulate_meas:
     :param measdata_filename:
     :return:
@@ -31,7 +270,7 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
         measured_wp_list = []
 
         if simulate_meas:
-            print('The used measuring data are simulated.\n')
+            print('\n The used measuring data are simulated.\n')
         else:
             print('The used data are from measurements.\n')
 
@@ -61,8 +300,7 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
 
                 if simulate_meas:
                     plotdata_line = map(float, line.split(' '))
-                    # currently wrong dimension and wrong values
-                    plotdata_mat_lis.append(plotdata_line)
+                    plotdata_mat_lis.append(plotdata_line)  # -> x,y,z,meantx1,...,meantxn,vartx1,...vartxn
 
                 else:
                     totnumwp += 1
@@ -97,18 +335,8 @@ def get_meas_values(object, simulate_meas, measdata_filename=None):
 
                     wp_pos = np.array([meas_data_mat_line[0], meas_data_mat_line[1], meas_data_mat_line[2]])
 
-                    antenna_orientation = np.array([[0.0], [0.0], [1.0]])
-
-                    # wp_angles = [0.0] * num_tx * 4
-                    # for itx in range(num_tx):  # TODO: check this function (from Jonas)
-                    #     pass
-                    #     # wp_angles[itx * 4:itx * 4 + 4] = rf_tools.get_angles(np.transpose(wp_pos[0:2][np.newaxis]),
-                    #     #                                                      np.transpose(txpos[itx, 0:2][np.newaxis]),
-                    #     #                                                      txpos[itx, 2], antenna_orientation, wp_pos[2])
-                    # wp_angles = np.asarray(wp_angles)
-
                     plotdata_line = np.concatenate((wp_pos, mean, var),
-                                                   axis=0)  # -> x,y,a,meantx1,...,meantxn,vartx1,...vartxn
+                                                   axis=0)  # -> x,y,z,meantx1,...,meantxn,vartx1,...vartxn
 
                     plotdata_mat_lis.append(plotdata_line)
                     # print plotdata_mat_lis
@@ -260,148 +488,7 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
     return True
 
 
-def get_distance(x_a, y_a, z_a, x_b, y_b, z_b):  # TODO: check if needed
-    dist = ((x_a - x_b) ** 2 + (y_a - y_b) ** 2 + (z_a - z_b) ** 2) ** 0.5  # build distance vector and makes amount
-    return dist
-
-
-def rss_value_generator(tx_pos, wp_pos, add_noise=True):
-    """
-    generates RSS values for simulation purposes
-    :param tx_pos: position of TX (vector)
-    :param wp_pos: position of simulated receiver antenna
-    :param add_noise: set bool to simulate measurement noise
-    :return: rss: simulated RSS value
-    """
-    pass  # TODO: implement simulation -> main problem is to get the values
-    # dist = get_distance()
-    # rss = -20 * np.log10(dist) + dist * lambda_ti + gamma_ti + np.log10(np.cos(psi_low)) + n_tx * np.log10(
-    #     np.cos(theta_cap)) + n_rec * np.log10(np.cos(theta_cap + theta_low))
-    # if add_noise:
-    #     tx_sigma = measurement_noise_model(r, theta_cap, psi_low, theta_low)
-    #     rss += np.random.randn(1) * tx_sigma
-    # return rss
-
-
-def measurement_simulation(tx_pos, freqtx, way_filename, meas_filename):
-    """
-    simulates a measurement -> writes header like real measurements and in measdata rss values with variance
-    :param tx_pos:
-    :param freqtx:
-    :param way_filename:
-    :return:
-    """
-    if way_filename is not None:
-        wplist_filename = path.relpath('Waypoints/' + way_filename + '.txt')
-    else:
-        wplist_filename = hc_tools.select_file(functionname='simulate_field_measurement')
-
-    if meas_filename is not None:
-        measdata_filename = path.relpath('Simulated_measurements/' + meas_filename + '.txt')
-    else:
-        measdata_filename = hc_tools.save_as_dialog()
-    print(measdata_filename)
-
-    meas_description = hc_tools.write_descrition()
-    print meas_description
-
-    numtx = len(freqtx)
-    print('freqtx ' + str(freqtx))
-    print('numtx ' + str(numtx))
-    print('tx_pos ' + str(tx_pos))
-
-    '''get values from waypoint file'''
-    with open(wplist_filename, 'r') as wpfile:
-        load_description = True
-        load_grid_settings = False
-        load_wplist = False
-        wp_append_list = []
-        for i, line in enumerate(wpfile):
-
-            if line == '### begin grid settings\n':
-                print('griddata found')
-                load_description = False
-                load_grid_settings = True
-                load_wplist = False
-                continue
-            elif line == '### begin wp_list\n':
-                load_description = False
-                load_grid_settings = False
-                load_wplist = True
-                print('### found')
-                continue
-            if load_description:
-                print('file description')
-                print(line)
-
-            if load_grid_settings and not load_wplist:
-                grid_settings = map(float, line.split(' '))
-                x0 = [grid_settings[0], grid_settings[1], grid_settings[2]]
-                xn = [grid_settings[3], grid_settings[4], grid_settings[5]]
-                grid_dxdyda = [grid_settings[6], grid_settings[7], grid_settings[8]]
-                timemeas = grid_settings[9]
-
-                data_shape = []
-                for i in range(3):  # range(num_dof)
-                    try:
-                        shapei = int((xn[i] - x0[i]) / grid_dxdyda[i] + i)
-                    except ZeroDivisionError:
-                        shapei = 1
-                    data_shape.append(shapei)
-
-            if load_wplist and not load_grid_settings:
-                # print('read wplist')
-                wp_append_list.append(map(float, line[:-2].split(' ')))
-
-        wp_data_mat = np.asarray(wp_append_list)
-        print('wp_data_mat: ' + str(wp_data_mat))
-
-    '''write values in measurement file'''
-    with open(measdata_filename, 'w') as measfile:
-
-        # write header to measurement file
-        file_description = ('Measurement simulation file\n' + 'Simulation was performed on ' + t.ctime() + '\n'
-                            + 'Description: ' + meas_description + '\n')
-
-        txdata = str(numtx) + ' '
-        for itx in range(numtx):
-            txpos = tx_pos[itx]
-            txdata += str(txpos[0]) + ' ' + str(txpos[1]) + ' ' + str(txpos[2]) + ' '
-        for itx in range(numtx):
-            txdata += str(freqtx[itx]) + ' '
-
-        print('txdata = ' + txdata)
-
-        measfile.write(file_description)
-        measfile.write('### begin grid settings\n')
-        measfile.write(str(x0[0]) + ' ' + str(x0[1]) + ' ' + str(x0[2]) + ' ' +
-                       str(xn[0]) + ' ' + str(xn[1]) + ' ' + str(xn[2]) + ' ' +
-                       str(grid_dxdyda[0]) + ' ' + str(grid_dxdyda[1]) + ' ' + str(grid_dxdyda[2]) + ' ' +
-                       str(timemeas) + ' ' + txdata +
-                       '\n')
-        measfile.write('### begin measurement data\n')
-        print wp_data_mat.shape[0]
-
-        mean = [1, 1]
-        var = [2, 2]
-        for i in range(wp_data_mat.shape[0]):  # TODO: simulate values
-            wp_pos = wp_data_mat[i][1:4]  # needed for error plots
-            # for itx in range(numtx):
-            #     mean[itx] = rss_value_generator()  # function that generates a rss mean value for certain distance
-            # var = 1
-            wp_angles = 1
-
-            measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' ')
-            for itx in range(numtx):
-                measfile.write(str(mean[itx]) + ' ')
-            for itx in range(numtx):
-                measfile.write(str(var[itx]) + ' ')
-            measfile.write(str(wp_angles) + '\n')
-
-    return True
-
-
-def get_angle_v_on_plane(v_x, v_1main, v_2):  # TODO: check this function
+def get_angle_v_on_plane(v_x, v_1main, v_2):
     """
     Vektor wird auf Ebene projeziert und Winkel mit main-Vektor gebildet
 
