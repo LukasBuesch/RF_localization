@@ -41,7 +41,7 @@ class MeasurementSimulation(object):
         self.__theta_cap = range(self.__numtx)
         self.get_angles_sym()
         self.__mean = range(self.__numtx)
-        self.__var = range(self.__numtx)
+        self.__var = np.ones(self.__numtx) * 500  # = tx_sigma must be dimension of tx_num
 
     def get_distance(self, i):
         """
@@ -247,7 +247,6 @@ class MeasurementSimulation(object):
 
                 for itx in range(self.__numtx):
                     self.rss_value_generator(itx)  # generates a rss value for certain distance
-                    self.__var[itx] = 1  # TODO: find a better way
 
                 measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' ')
                 for itx in range(self.__numtx):
@@ -312,7 +311,7 @@ def get_meas_values(simulate_meas, measdata_filename=None):
                 found_meas = True
 
                 if simulate_meas:
-                    plotdata_line = map(float, line.split(' '))
+                    plotdata_line = map(float, line[:-2].split(' '))  # [:-2] to avoid converting '\n' into float
                     plotdata_mat_lis.append(plotdata_line)  # -> x,y,z,meantx1,...,meantxn,vartx1,...vartxn
 
                 else:

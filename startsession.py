@@ -44,11 +44,11 @@ class TxData(object):
         return self.__tx_pos
 
 
-def waypoint_file_generating(filename=None):  # TODO: write function to create a rectangular waypoint path in inclined plane (alpha)
+def waypoint_file_generating(filename=None):
     x0 = [1020, 1147, 0]
     xn = [1693, 1147, 1000]
 
-    dxdyda = [100, 0, 0]
+    dxdyda = [100, 0, 100]
 
     if filename is not None:
         wp_filename_rel_path = path.relpath('Waypoints/' + filename + '.txt')
@@ -141,14 +141,15 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='first_try',
-                               cal_param_file='Test_file')
+    # simulate_field_measurement(tx_num=2, way_filename='wp_file_sym_z', meas_filename='first_try_z',
+    #                            cal_param_file='Test_file')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
-    # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
+    # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
+        # if no input is selected file function active
 
-    # position_estimation(filename='second_try',
-    #                     cal_param_file='Test_file', sym_meas=False)  # if no input is selected file function active
+    position_estimation(filename='first_try_z', cal_param_file='Test_file', sym_meas=True)
+        # if no input is selected file function active
 
     # check_antennas(False)

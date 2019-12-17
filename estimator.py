@@ -510,7 +510,7 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
 
     '''load measurement data'''
     meas_data = est_to.get_meas_values(simulate_meas, measfile_rel_path)  # possibly write this data into class
-    print('meas_data:\n' + str(meas_data))
+    # print('meas_data:\n' + str(meas_data))
 
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
