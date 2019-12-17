@@ -350,12 +350,11 @@ class Extended_Kalman_Filter(object):
         psi_low = []
         theta_low = []
         for i in range(self.__tx_num):
-            a = np.transpose(np.asarray(self.__tx_pos[i]))  # FIXME: wrong dimensions -> check why transpose doesnt work
-            r = self.__x_est[:2] - self.__tx_pos[i]
+            r = self.__x_est[:] - np.asarray(self.__tx_pos[i]).reshape(3, 1)
             r_abs = np.linalg.norm(r)
             '''Phi -> twisting angle'''
             phi_cap.append(np.arccos(r[0][0] / r_abs))
-            if r[1][0] <= 0.0:
+            if r[1] <= 0.0:
                 phi_cap[i] = 2 * np.pi - phi_cap[i]
 
             '''Theta -> height angle'''

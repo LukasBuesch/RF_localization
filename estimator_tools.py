@@ -42,11 +42,15 @@ class MeasurementSimulation(object):
         self.get_angles_sym()
         self.__mean = range(self.__numtx)
         self.__var = range(self.__numtx)
-        self.__y_rss = range(self.__numtx)
 
-    def get_distance(self):
-        self.__r_dist = ((self.__wp[0] - self.__tx_pos[0]) ** 2 + (self.__wp[1] - self.__tx_pos[1]) ** 2 +
-                         (self.__wp[2] - self.__tx_pos[2]) ** 2) ** 0.5  # build distance vector and makes amount
+    def get_distance(self, i):
+        """
+        build distance vector and makes amount
+        :param i:
+        :return:
+        """
+        r = np.asarray(self.__wp[i, :]).reshape(3, 1) - np.asarray(self.__tx_pos[i]).reshape(3, 1)
+        self.__r_dist = np.linalg.norm(r)
         return True
 
     def set_cal_params(self, cal_param_file=None):
@@ -69,9 +73,9 @@ class MeasurementSimulation(object):
         :param add_noise: set bool to simulate measurement noise
         :return: rss: simulated RSS value
         """
-        self.get_distance()
+        self.get_distance(itx)
 
-        self.__y_rss[itx] = -20 * np.log10(self.__r_dist) + self.__r_dist * self.__tx_lambda[itx] \
+        self.__mean[itx] = -20 * np.log10(self.__r_dist) + self.__r_dist * self.__tx_lambda[itx] \
                 + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])) \
                 + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
                 + self.__n_rec * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
@@ -88,11 +92,11 @@ class MeasurementSimulation(object):
         psi_low = []
         theta_low = []
         for i in range(self.__numtx):
-            r = self.__wp[:2] - self.__tx_pos[i]
+            r = np.asarray(self.__wp[i, :]).reshape(3, 1) - np.asarray(self.__tx_pos[i]).reshape(3, 1)
             r_abs = np.linalg.norm(r)
             '''Phi -> twisting angle'''
             phi_cap.append(np.arccos(r[0][0] / r_abs))
-            if r[1][0] <= 0.0:
+            if r[1] <= 0.0:
                 phi_cap[i] = 2 * np.pi - phi_cap[i]
 
             '''Theta -> height angle'''
@@ -127,12 +131,14 @@ class MeasurementSimulation(object):
 
         return True
 
-    def measurement_simulation(self):
+    def measurement_simulation(self, cal_param_file=None):
         """
         simulates a measurement -> writes header like real measurements and in measdata rss values with variance
 
         :return:
         """
+
+        '''get values from waypoint file'''
         if self.__way_filename is not None:
             wplist_filename = path.relpath('Waypoints/' + self.__way_filename + '.txt')
         else:
@@ -142,7 +148,7 @@ class MeasurementSimulation(object):
             measdata_filename = path.relpath('Simulated_measurements/' + self.__meas_filename + '.txt')
         else:
             measdata_filename = hc_tools.save_as_dialog()
-        print(measdata_filename)
+        print measdata_filename
 
         meas_description = hc_tools.write_descrition()
         print meas_description
@@ -199,12 +205,12 @@ class MeasurementSimulation(object):
 
             num_wp = len(wp_append_list)
             wp_data_mat = np.asarray(wp_append_list)
-            print('wp_data_mat: ' + str(wp_data_mat))
+            # print('wp_data_mat: ' + str(wp_data_mat))
 
-            wp = range(num_wp)
-            for itx in range(num_wp):
-                wp[itx] = wp_data_mat[:, 1:4]
-            self.__wp = np.asarray(wp)
+            # wp = range(num_wp)
+            # for itx in range(num_wp):
+            #     wp[itx] = wp_data_mat[:, 1:4]
+            self.__wp = np.asarray(wp_data_mat[:, 1:4])
 
         '''write values in measurement file'''
         with open(measdata_filename, 'w') as measfile:
@@ -232,11 +238,15 @@ class MeasurementSimulation(object):
             measfile.write('### begin measurement data\n')
             print wp_data_mat.shape[0]
 
+            self.set_cal_params(cal_param_file)
+            self.set_init_values()
+
             for i in range(wp_data_mat.shape[0]):
+
                 wp_pos = wp_data_mat[i][1:4]  # needed for error plots
-                self.get_angles_sym()
+
                 for itx in range(self.__numtx):
-                    self.__mean[itx] = self.rss_value_generator(itx)  # generates a rss value for certain distance
+                    self.rss_value_generator(itx)  # generates a rss value for certain distance
                     self.__var[itx] = 1  # TODO: find a better way
 
                 measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' ')
@@ -244,6 +254,9 @@ class MeasurementSimulation(object):
                     measfile.write(str(self.__mean[itx]) + ' ')
                 for itx in range(self.__numtx):
                     measfile.write(str(self.__var[itx]) + ' ')
+                measfile.write('\n')  # -> x,y,z,meantx1,...,meantxn,vartx1,...vartxn
+
+        print('The simulated values are saved in :\n' + str(measdata_filename))
 
         return True
 

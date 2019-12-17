@@ -67,12 +67,12 @@ def start_field_measurement():
     gc.start_field_measurement_file_select()
 
 
-def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None):
+def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None, cal_param_file=None):
     TX = TxData(num_tx=tx_num)
     tx_pos = TX.get_tx_pos()
     freq_tx = TX.get_freq_tx()
     MS = est_to.MeasurementSimulation(tx_pos, freq_tx, way_filename, meas_filename, alpha=0)
-    MS.measurement_simulation()
+    MS.measurement_simulation(cal_param_file='Test_file')
     return True
 
 
@@ -141,13 +141,14 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='second_try')
+    simulate_field_measurement(tx_num=2, way_filename='Waypointlist_for_simulation', meas_filename='first_try',
+                               cal_param_file='Test_file')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')  # if no input is selected file function active
 
-    position_estimation(filename='second_try',
-                        cal_param_file='Test_file', sym_meas=False)  # if no input is selected file function active
+    # position_estimation(filename='second_try',
+    #                     cal_param_file='Test_file', sym_meas=False)  # if no input is selected file function active
 
     # check_antennas(False)
