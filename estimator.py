@@ -38,8 +38,6 @@ class Extended_Kalman_Filter(object):
         self.__theta_cap = []  # Theta -> height angle -> always 0 in this application
         self.__psi_low = []  # psi -> polarisation angle
         self.__phi_cap = []  # Phi -> twisting angle
-        self.__n_tx = 2  # coefficient of rss model for cos
-        self.__n_rec = 2  # coefficient of rss model for cos
         self.__z_depth_sigma = z_depth_sigma
         self.__inclined_plane_real = inclined_plane  # drive real inclined plane with gantry ? -> True
 
@@ -50,6 +48,12 @@ class Extended_Kalman_Filter(object):
         self.__alpha = alpha  # inclination angle of RF-plane
         self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
         # TODO: check vector
+        hpbw = 30.0  # 13.0  # half_power_band_width -> paper der Koreaner (Ueber Kippwinkel)  # TODO: currently working here
+        hpbwrad = hpbw * np.pi / 180
+        antenna_D = -172.4 + 191 * np.sqrt(0.818 + (1.0 / hpbw))
+        antenna_n = np.log(0.5) / np.log(np.cos(hpbwrad * 0.5))
+        self.__n_tx = [antenna_n]*6  # coefficient of rss model for cos
+        self.__n_rec = [antenna_n]*6  # coefficient of rss model for cos
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
         self.__sig_x2 = sig_x2
@@ -512,6 +516,9 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     meas_data = est_to.get_meas_values(simulate_meas, measfile_rel_path)  # possibly write this data into class
     # print('meas_data:\n' + str(meas_data))
 
+    '''initialize Plotter'''
+    EKF_plotter = ept.EKF_Plot(EKF.get_tx_pos())  # initialize ekf plotter with tx_pos
+
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     for i in range(num_meas):
@@ -527,6 +534,9 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
 
         print('x_est = ')
         print(str(EKF.get_x_est()) + '\n')
+
+        # add new x_est to plot
+        # EKF_plotter.add_x_est_to_plot(EKF.get_x_est())
 
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'

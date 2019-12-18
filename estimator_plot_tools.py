@@ -64,7 +64,7 @@ class EKF_Plot(object):
 
         self.plot_beacons()
 
-        plt.show(False)
+        plt.show()
         plt.draw()
         self.__fig1background = self.__fig1.canvas.copy_from_bbox(self.__ax1.bbox)
 
@@ -235,6 +235,3 @@ class EKF_Plot(object):
 
         plt.pause(0.001)
 
-
-def waypoint_test_plot():
-    pass
