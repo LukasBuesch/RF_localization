@@ -149,7 +149,7 @@ if __name__ == '__main__':
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
         # if no input is selected file function active
 
-    position_estimation(filename='first_try_z', cal_param_file='Test_file', sym_meas=True)
+    position_estimation(filename='second_try', cal_param_file='Test_file', sym_meas=False)
         # if no input is selected file function active
 
     # check_antennas(False)
