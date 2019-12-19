@@ -394,8 +394,8 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
                 return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(
-                    3.83135740649 ** 2)  # rss in db
-        elif model_type == 'lin':  # todo: OLD: consider linearized Angles when use is desired. decide to not bother linearizing and throw this out of the code.
+                    3.83135740649 ** 2)  # rss in db  # TODO: set correct values for __D_0_tx, __D_0_rx !
+        elif model_type == 'lin':
             def rsm_model(dist_rsm, lambda_rsm, gamma_rsm):
                 """Range Sensor Model (RSM) structure."""
                 return lambda_rsm * dist_rsm + gamma_rsm  # rss in db

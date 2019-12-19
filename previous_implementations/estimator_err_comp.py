@@ -378,7 +378,7 @@ if __name__ == '__main__':
     # tx_h = np.array([600, 600, 600, 600, 600, 600])
 
 
-    '''Berechnung von n und D'''  # TODO: nochmal genau mit daniel absprechen, woher hpbw kommt
+    '''Berechnung von n und D'''
     hpbw = 30.0  # 13.0  # half_power_beam_width -> paper der Koreaner (Ueber Kippwinkel)
     hpbwrad = hpbw * np.pi/180
     antenna_D = -172.4 + 191*np.sqrt(0.818+(1.0/hpbw))
