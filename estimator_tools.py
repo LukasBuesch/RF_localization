@@ -522,3 +522,20 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
             angle_x = np.arccos(cos_angle)
 
     return angle_x
+
+def get_distance_3d(x_a, h_a, x_b, h_b):
+    x_ab = x_a - x_b
+    h_ab = h_a - h_b
+    dist = ((x_ab[0][0])**2 + (x_ab[1][0])**2 + h_ab**2)**0.5
+    return dist
+
+
+def get_distance_2d(x_a, x_b):
+    x_ab = x_a - x_b
+    dist = ((x_ab[0][0])**2 + (x_ab[1][0])**2)**0.5
+    return dist
+
+
+def get_distance_1d(x_a, x_b):
+    dist = abs(x_a - x_b)
+    return dist

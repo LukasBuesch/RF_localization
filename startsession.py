@@ -45,17 +45,17 @@ class TxData(object):
 
 
 def waypoint_file_generating(filename=None):
-    x0 = [1020, 1147, 0]
-    xn = [1693, 1147, 1000]
+    x0 = [1020, 547, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
+    xn = [1693, 1147, 0]  # end point of rectangle (opposite corner)??
 
-    dxdyda = [100, 0, 100]
+    dxdyda = [100, 100, 0]
 
     if filename is not None:
         wp_filename_rel_path = path.relpath('Waypoints/' + filename + '.txt')
     else:
         wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...(waypoint_file_generating)')
 
-    rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, True)
+    rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, show_plot=True)
 
 
 def start_field_measurement():
@@ -137,11 +137,11 @@ if __name__ == '__main__':
     '''
     start all functions from here
     '''
-    # waypoint_file_generating()  # if no input is selected file function active
+    waypoint_file_generating()  # if no input is selected file function active
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='wp_file_sym_z', meas_filename='first_try_z',
+    # simulate_field_measurement(tx_num=2, way_filename='wp_file_sym_test', meas_filename='first_try',
     #                            cal_param_file='Test_file')
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
         # if no input is selected file function active
 
-    position_estimation(filename='second_try', cal_param_file='Test_file', sym_meas=False)
+    # position_estimation(filename='second_try', cal_param_file='Test_file', sym_meas=False)
         # if no input is selected file function active
 
     # check_antennas(False)

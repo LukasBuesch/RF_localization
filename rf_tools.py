@@ -47,11 +47,14 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
     endz = xn[2]
     stepz = steps[2]
 
+    # create vectors of rectangle sites
     xpos = np.linspace(startx, endx, stepx)
     ypos = np.linspace(starty, endy, stepy)
     zpos = np.linspace(startz, endz, stepz)
 
+    # create rectangle from vectors  # TODO: find the error!
     wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
     wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
     wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
     wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
@@ -82,6 +85,7 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(wp_mat[:, 0], wp_mat[:, 1], wp_mat[:, 2], '.-')
         # ax.show()
+        plt.show()
     print('Way point generator terminated!')
     return wp_filename  # file output [line#, x, y, a, time]
 
@@ -166,8 +170,7 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
     return angle_x
 
 
-def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc,
-               h_mauv_anglecalc):  # TODO: check up this function
+def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc, h_mauv_anglecalc):
     dh_anglecalc = h_mauv_anglecalc - h_tx_anglecalc
     r_anglecalc = x_current_anglecalc - tx_pos_anglecalc
     r_abs_anglecalc = np.linalg.norm(r_anglecalc)
