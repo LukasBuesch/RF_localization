@@ -377,31 +377,41 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
         Model fit
         """
         if model_type == 'log':
-            '''
+
+            # correct version according to BA (Lukas Buesch)
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm, n_t_rsm, n_r_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, psi_low_rsm, theta_cap_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(np.cos(abs(psi_low_rsm))) + n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm))) + n_r_rsm * np.log10(abs(np.cos(theta_cap_rsm + theta_low_rsm)))  # rss in db
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm \
+                       + np.log10(np.cos(abs(psi_low_rsm)) ** 2) \
+                       + n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm))) \
+                       + n_r_rsm * np.log10(abs(np.cos(theta_cap_rsm + theta_low_rsm)))  # rss in db
 
+            # other versions
+            '''
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm, n_r_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, psi_low_rsm, theta_cap_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(np.cos(abs(psi_low_rsm))) + n_r_rsm * np.log10(abs(np.cos(theta_low_rsm)))  # rss in db
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm \
+                       + np.log10(np.cos(abs(psi_low_rsm)) ** 2) \
+                       + n_r_rsm * np.log10(abs(np.cos(theta_low_rsm)))  # rss in db
+
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm, n_t_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + 2 * n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm)))  # rss in db
-            '''
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + 2 * n_t_rsm * np.log10(
+                    abs(np.cos(theta_cap_rsm)))  # rss in db
 
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
                 return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(
-                    3.83135740649 ** 2)  # rss in db  # TODO: set correct values for __D_0_tx, __D_0_rx !
+                    3.83135740649 ** 2)  # rss in db  
+            '''
+
         elif model_type == 'lin':
-            def rsm_model(dist_rsm, lambda_rsm, gamma_rsm):
-                """Range Sensor Model (RSM) structure."""
-                return lambda_rsm * dist_rsm + gamma_rsm  # rss in db
+            print('model_type == lin is not supported!')
+            return (2)
 
         rdist = []
 

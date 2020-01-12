@@ -10,12 +10,12 @@ class Extended_Kalman_Filter(object):
 
     def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_z=500, sig_w1=100, sig_w2=100, sig_wz=100,
                  z_depth_sigma=1, alpha=0, inclined_plane=False):
-        # TODO: check default values
+
         """
         initialize EKF class
 
-        :param x_start: first position entry for EKF -> kidnapped-robot-problem (0,0,0)
-        :param sig_x1: initial value for P matrix (p_mat) -> uncertainty in x direction
+        :param x_start: first position entry for EKF -> kidnapped-robot-problem somewhere in tank eg.(0,0,0)
+        :param sig_x1: initial value for P matrix (p_mat) -> uncertainty in x direction -> greater than tank borders
         :param sig_x2: initial value for P matrix (p_mat) -> uncertainty in y direction
         :param sig_z: initial value for P matrix (p_mat) -> uncertainty from depth measurement
         -> kidnapped robot problem, first unknown position (somewhere in the tank, possibly in the middle) and very high
@@ -54,7 +54,7 @@ class Extended_Kalman_Filter(object):
         hpbw_rad = hpbw * np.pi / 180
         antenna_D = -172.4 + 191 * np.sqrt(0.818 + (1.0 / hpbw))  # approx according to Pozar -> hpbw in deg
         antenna_n = np.log(0.5) / np.log(np.cos(hpbw_rad * 0.5))  # hpbw in cos -> needed in rad
-        self.__n_tx = antenna_n * 6  # coefficient of rss model for cos  # TODO: Why *6 ??
+        self.__n_tx = antenna_n * 6  # coefficient of rss model for cos
         self.__n_rx = antenna_n * 6  # coefficient of rss model for cos
         self.__D_0_tx = antenna_D  # coefficient before cos of transmitter (tx)
         self.__D_0_rx = antenna_D  # coefficient before cos of receiver (rx)
@@ -115,8 +115,8 @@ class Extended_Kalman_Filter(object):
                 print('lambda = ' + str(self.__tx_lambda))
                 print('gamma = ' + str(self.__tx_gamma))
 
-            else:  # TODO: set new params as default
-
+            else:
+                # default values from predecessor -> not checked
                 self.__tx_lambda = [-0.0199179, -0.0185479]
                 self.__tx_gamma = [-5.9438, -8.1549]
                 print('Used default values for lambda and gamma (set cal_param_file if needed)\n')
@@ -276,17 +276,15 @@ class Extended_Kalman_Filter(object):
 
         r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
 
-        # latest version from Jonas  # FIXME: works much better
+        # RSS equation according to BA (Lukas Buesch)
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
-                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])) \
+                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx]) ** 2) \
                 + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
                 + self.__n_rx * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
 
-        # correct implementation according to formula  # FIXME: very bad performance of estimator
-        # y_rss = self.__tx_gamma[itx] + self.__tx_lambda[itx] * r_dist + np.log10(
-        #         self.__D_0_tx * abs(np.cos(self.__theta_cap[itx]) ** self.__n_tx)
-        #         * self.__D_0_rx * abs(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]) ** self.__n_rx)
-        #         * np.cos(self.__phi_cap[itx]) ** 2)
+
+
+
 
         return y_rss, r_dist
 
@@ -374,26 +372,28 @@ class Extended_Kalman_Filter(object):
         for i in range(self.__tx_num):
             r = self.__x_est[:] - np.asarray(self.__tx_pos[i]).reshape(3, 1)
             r_abs = np.linalg.norm(r)
+            r_xy = np.sqrt(r[0] ** 2 + r[1]**2)
+
             '''Phi -> twisting angle'''
-            phi_cap.append(np.arccos(r[0][0] / r_abs))
+            phi_cap.append(np.arccos(r[0][0] / r_xy))
             if r[1] <= 0.0:
                 phi_cap[i] = 2 * np.pi - phi_cap[i]
 
             '''Theta -> height angle'''
-            theta_cap.append(0)
+            theta_cap.append(np.arctan(r[2] / r_xy))
 
             '''rotation matrix G -> R'''
             S_GR = np.array([[np.cos(phi_cap[i]), -np.sin(phi_cap[i]), 0.0],
                              [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
                              [0.0, 0.0, 1.0]]).T
 
-            '''rotation matrix G -> R_prime'''
+            '''rotation matrix G -> R_prime'''  # FIXME: changes in sign to Jonas because of incorrect matrix mult
             S_GR_prime = np.array(
                 [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]),
-                  -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                  np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
                  [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]),
-                  -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
-                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
+                  np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [-np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
 
             '''psi -> polarisation angle'''
             psi_low.append(est_to.get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
@@ -484,6 +484,7 @@ class Extended_Kalman_Filter(object):
             # estimate measurement from x_est
             self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
             y_tild = self.__rss_meas[itx] - self.__y_est[itx]
+            print('y_tild_RSS_' + str(itx) + ' = '+ str(y_tild))
 
             # estimate measurement noise based on
             r_mat = self.measurement_covariance_model(itx)
@@ -500,10 +501,11 @@ class Extended_Kalman_Filter(object):
                                    self.__p_mat[:2, :2]
             # = (I-KH)*P
 
-        '''determine z_TA position'''
+        '''determine z_Tx position'''
         # estimate intersection from xy position
         z_est = self.h_z_depth()
-        y_tild = z_est - self.__x_est[2]  # z_t - h(\mu_bar_t)
+        y_tild = z_est - self.__x_est[2]  # z_t - h(\mu_bar_t) --> not z -prediction through h but z through h - predict
+        print('y_tild_Z_Tx' + ' = ' + str(y_tild))
 
         # get measurement noise (for z_depth a constant value)
         r_mat = self.__z_depth_sigma ** 2
