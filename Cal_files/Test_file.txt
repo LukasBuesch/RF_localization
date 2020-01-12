@@ -1,7 +1,7 @@
 Calibration parameter file
-Calibration was performed on Thu Nov 14 16:15:05 2019
-Description: Tets
+Calibration was performed on Sun Jan 12 18:59:51 2020
+Description: Testing new RSS function
 ###lambda
 -0.0199179 -0.0185479 
 ###gamma
--5.9438 -8.1549 
+-4.7771 -6.9882 

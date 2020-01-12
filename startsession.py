@@ -130,7 +130,7 @@ def position_estimation(filename=None, cal_param_file=None, sym_meas=None):
     else:
         measfile_rel_path = hc_tools.select_file(functionname='position estimation')
 
-    est.main(measfile_rel_path, cal_param_file, False, simulate_meas=sym_meas)
+    est.main(sym_meas, measfile_rel_path, cal_param_file, make_plot=True)
 
 
 if __name__ == '__main__':
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
         # if no input is selected file function active
 
-    position_estimation(filename='first_try', cal_param_file='Test_file', sym_meas=True)
+    position_estimation(filename='second_try', cal_param_file='Test_file', sym_meas=False)
         # if no input is selected file function active
 
     # check_antennas(False)

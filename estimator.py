@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 class Extended_Kalman_Filter(object):
 
     def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_z=500, sig_w1=100, sig_w2=100, sig_wz=100,
-                 z_depth_sigma=1, alpha=0, inclined_plane=False):
+                 z_depth_sigma=1, alpha=0.0*np.pi, inclined_plane=False):
 
         """
         initialize EKF class
@@ -43,11 +43,16 @@ class Extended_Kalman_Filter(object):
         self.__inclined_plane_real = inclined_plane  # drive real inclined plane with gantry ? -> True
 
         """ initialize EKF """
+        self.__alpha = alpha  # inclination angle of RF-plane
+
         self.__x_est_0 = np.array([[x_start[0]], [x_start[1]], [x_start[2]]])
         self.__x_est = self.__x_est_0
-        self.__z_depth = 0  # z position in SR coordinates (from depth sensor -> here simulated by z-Gantry)
-        self.__alpha = alpha  # inclination angle of RF-plane
-        self.__z_UR = [[0], [np.sin(self.__alpha)], [np.cos(self.__alpha)]]  # orientation of z axis of UR in TA coord.
+
+        self.__x_real = 0  # needed for z_depth calculation
+        self.__z_depth_0 = np.sin(self.__alpha) * self.__x_real
+        self.__z_depth = self.__z_depth_0  # z position in SR coordinates (from depth sensor -> simulated by z-Gantry)
+
+        self.__z_UR = [[-np.sin(self.__alpha)], [0], [np.cos(self.__alpha)]]  # orientation of Rx in Tx-coordinates
 
         # values for RF model
         hpbw = 30.0  # 13.0  # half power beam width (check BA Jonas -> 32,47 +- 6,03 deg)
@@ -197,8 +202,8 @@ class Extended_Kalman_Filter(object):
         self.__p_mat = p0
         return True
 
-    def set_z_depth(self, z_depth):
-        self.__z_depth = z_depth
+    def set_x_real(self, x_real):
+        self.__x_real = x_real
         return True
 
     '''get params'''
@@ -280,11 +285,7 @@ class Extended_Kalman_Filter(object):
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
                 + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx]) ** 2) \
                 + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
-                + self.__n_rx * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
-
-
-
-
+                + self.__n_rx * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))
 
         return y_rss, r_dist
 
@@ -308,7 +309,7 @@ class Extended_Kalman_Filter(object):
 
             h_rss_jac = np.array([[h_rss_jac_x1], [h_rss_jac_x2]])
 
-            print('analytic solution of h_rss_jac is not supportet yet!')
+            print('analytic solution of h_rss_jac is not supported yet!')
             sys.exit(2)
 
         else:
@@ -332,14 +333,18 @@ class Extended_Kalman_Filter(object):
          x_est[:2] with z depth in SR coordinates
         :return:
         """
-        z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
+        self.__z_depth = np.sin(self.__alpha) * self.__x_real
+        # z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
+        z_offset = 0
 
-        if self.__inclined_plane_real:
-            z_depth_prime = self.__z_depth - z_offset
-            # calculates intersection of gradient from x_est with the depth in TA coordinates
+        # if self.__inclined_plane_real:
+        #     z_depth_prime = self.__z_depth - z_offset
+        #     # calculates intersection of gradient from x_est with the depth in TA coordinates
+        #
+        # else:
+        #     z_depth_prime = self.__z_depth / np.cos(self.__alpha) - z_offset
 
-        else:
-            z_depth_prime = self.__z_depth / np.cos(self.__alpha) - z_offset
+        z_depth_prime = self.__z_depth
 
         z_est = np.cos(self.__alpha) * z_depth_prime + np.tan(self.__alpha) * (self.__x_est[0]
                                                                                + np.sin(self.__alpha) * z_depth_prime)
@@ -372,7 +377,7 @@ class Extended_Kalman_Filter(object):
         for i in range(self.__tx_num):
             r = self.__x_est[:] - np.asarray(self.__tx_pos[i]).reshape(3, 1)
             r_abs = np.linalg.norm(r)
-            r_xy = np.sqrt(r[0] ** 2 + r[1]**2)
+            r_xy = np.sqrt(r[0] ** 2 + r[1] ** 2)
 
             '''Phi -> twisting angle'''
             phi_cap.append(np.arccos(r[0][0] / r_xy))
@@ -426,7 +431,7 @@ class Extended_Kalman_Filter(object):
             if -35 < rss_noise_model:
                 print('RSS too high -> rx close to tx ')
             else:
-                print('Distance too large.')
+                print('Distance too large or angles to high.')
 
             print('Meas_Cov_Model: for tx antenna = ' + str(itx) + ' r_sig set to ' + str(r_sig))
 
@@ -484,7 +489,7 @@ class Extended_Kalman_Filter(object):
             # estimate measurement from x_est
             self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
             y_tild = self.__rss_meas[itx] - self.__y_est[itx]
-            print('y_tild_RSS_' + str(itx) + ' = '+ str(y_tild))
+            print('y_tild_RSS_' + str(itx) + ' = ' + str(y_tild))
 
             # estimate measurement noise based on
             r_mat = self.measurement_covariance_model(itx)
@@ -526,7 +531,7 @@ class Extended_Kalman_Filter(object):
         return True
 
 
-def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_meas=True):
+def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=False):
     """
     executive programm
 
@@ -549,18 +554,16 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     meas_data = est_to.get_meas_values(simulate_meas, measfile_rel_path)  # possibly write this data into class
     # print('meas_data:\n' + str(meas_data))
 
-    '''initialize Plotter'''
-    # EKF_plotter = ept.EKF_Plot(EKF.get_tx_pos())  # initialize ekf plotter with tx_pos
-
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     x_est_list = []
+
     for i in range(num_meas):
         print('\n \n \nPassage number:' + str(i + 1) + '\n')
         print('meas_data num :' + str(i) + str(meas_data[i][:]) + '\n')
 
         # setting depth value from wp position to simulate depth sensor
-        EKF.set_z_depth(meas_data[i][2])
+        EKF.set_x_real(meas_data[i][0])
 
         EKF.ekf_prediction()
 
@@ -569,10 +572,12 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
         print('x_est = ')
         print(str(EKF.get_x_est()) + '\n')
 
-        x_est_list.append(EKF.get_x_est())
+        x = EKF.get_x_est()[0][0]
+        y = EKF.get_x_est()[1][0]
+        z = EKF.get_x_est()[2][0]
 
-        # add new x_est to plot
-        # EKF_plotter.add_x_est_to_plot(EKF.get_x_est(), yaw_rad=0)
+        x_est_list.append([x, y, z])  # for plotting purposes
+        # x_est_list.append(EKF.get_x_est().tolist())
 
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'
@@ -586,9 +591,12 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     '''Erstellung der X und Y Koordinatenlisten zum einfachen und effizienteren Plotten'''
     x_n_x = [None] * num_meas
     x_n_y = [None] * num_meas
+    x_n_z = [None] * num_meas
+
     x_est_x = [None] * len(x_est_list)
     x_est_y = [None] * len(x_est_list)
     x_est_z = [None] * len(x_est_list)
+
     tx_pos_x = [None] * len(EKF.get_tx_pos())
     tx_pos_y = [None] * len(EKF.get_tx_pos())
     tx_pos_z = [None] * len(EKF.get_tx_pos())
@@ -596,6 +604,7 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     for i in range(0, num_meas):
         x_n_x[i] = meas_data[i, 0]  # position of waypoints
         x_n_y[i] = meas_data[i, 1]  # position of waypoints
+        x_n_z[i] = meas_data[i, 2]  # position of waypoints
 
     for i in range(0, len(x_est_list)):
         x_est_x[i] = x_est_list[i][0]
@@ -623,25 +632,28 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
         x_est_fehler[i] = est_to.get_distance_1d(x_est_x[i], x_n_x[i - 1])
     # plt.plot(x_est_fehler)
 
-    ymax = max(x_est_fehler)
+    xmax = max(x_est_fehler)
 
     for i in range(3, len(x_n_y)):
         x_est_fehler[i] = est_to.get_distance_1d(x_est_y[i], x_n_y[i - 1])
 
     # plt.plot(x_est_fehler)
 
-    ymax = max([max(x_est_fehler), ymax])
+    ymax = max([max(x_est_fehler), xmax])
+
+    a = np.asarray(x_est_list[3])
+    b = meas_data[3 - 1, 0:3]
 
     for i in range(3, len(x_est_list)):
-        x_est_fehler[i] = est_to.get_distance_2d(x_est_list[i], meas_data[i - 1, 0:3])
+        x_est_fehler[i] = est_to.get_distance_2d(np.asarray(x_est_list[i]), meas_data[i - 1, 0:3])
 
     # plt.plot(x_est_fehler)
 
-    ymax = max([max(x_est_fehler), ymax])
+    ymax = max([max(x_est_fehler), ymax])  # maximum error
 
     x_est_fehler_ges_mean = [np.mean(x_est_fehler[3:])] * len(x_est_x)
 
-    x_est_fehler_ges_sdt = np.std(x_est_fehler[3:])
+    x_est_fehler_ges_sdt = np.std(x_est_fehler[3:])  # just for 2D error??
 
     if plot_fehlerplotueberkoordinaten:
         plt.plot(x_est_fehler_ges_mean, '--')
@@ -667,18 +679,17 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
             msg_x_est_temp = x_est_list[itx]
             # print('x= ' + str(msg_x_est))
             msg_yaw_rad = 0
-            msg_z_meas = meas_data[itx, 3:(3+EKF.get_tx_num())]
-            msg_y_est = meas_data[itx, 3:(3+EKF.get_tx_num())]
+            msg_z_meas = meas_data[itx, 3:(3 + EKF.get_tx_num())]
+            msg_y_est = meas_data[itx, 3:(3 + EKF.get_tx_num())]
             msg_next_wp = meas_data[itx, 0:3]
             # print('wp=' + str(msg_next_wp))
-    
+
             ekf_plotter.add_x_est_to_plot(msg_x_est_temp, msg_yaw_rad)
             ekf_plotter.update_next_wp(msg_next_wp)
             ekf_plotter.update_meas_circles(msg_z_meas, EKF.get_tx_lambda(), EKF.get_tx_gamma(), direct_terms,
                                             msg_y_est, b_plot_yest=True)
             ekf_plotter.plot_ekf_pos_live(b_yaw=False, b_next_wp=True)
             plt.show()  # Hier Breakpoint hinsetzen fuer Analyse der punkte
-
 
     '''Strecke im Scatterplot'''
 
@@ -723,8 +734,12 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
         # plt.show()
 
     else:
+        '''
+        here begins the tracking plot
+        '''
         plt.subplot(121)
         # plt.subplot(111)
+
         plt.plot(x_n_x, x_n_y, marker=".", c='c')
         plt.plot(x_est_x, x_est_y, marker=".", c='r')
         plt.scatter(tx_pos_x, tx_pos_y, marker="*", c='k', s=100)
@@ -740,12 +755,16 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
         plt.xlabel('X - Achse [mm]')
         plt.ylabel('Y - Achse [mm]')
         plt.grid()
+
+        #add annotations
+
         # plt.legend(['$x_text{wahr}', '$x_text{R,est}', '$x_text{Ti}'], loc=3, ncol=3)  # best:0, or=1, ol=2, ul=3, ur=4
         # plt.title('Plot der wahren und geschaetzten Punkte', fontsize=25)
         # plt.annotate('Z-Koordinate Sendeantennen: ' + str(tx_h[0]) + 'mm', xy=(xmin+50, ymax-50), xytext=(xmin+50, ymax-50))
         # plt.annotate('Z-Koordinate Empfaengerantenne: ' + str(h_mauv) + 'mm', xy=(xmin+50, ymax-160), xytext=(xmin+50, ymax-160))
-        plt.annotate('Durchschnittlicher Fehler: ' + str(np.round(x_est_fehler_ges_mean[0], 0)) + ' +- ' + str(
-            np.round(x_est_fehler_ges_sdt)) + 'mm', xy=(xmin + 50, ymax - 350), xytext=(xmin + 50, ymax - 350))
+        plt.annotate('Durchschnittlicher Fehler: ' + str(np.round(x_est_fehler_ges_mean[0], 0)) + ' +- '
+                     + str(np.round(x_est_fehler_ges_sdt))
+                     + 'mm', xy=(xmin + 50, ymax - 350), xytext=(xmin + 50, ymax - 350))
         plt.annotate('$x_text{0,est,wahr}', xy=(x_est_x[0], x_est_y[0]), xytext=(x_est_x[0] - 50, x_est_y[0] - 100))
         # plt.annotate('$x_text{0,wahr}', xy=(x_n_x[0], x_n_y[0]), xytext=(x_n_x[0]-50, x_n_y[0]-100))
 
@@ -756,23 +775,47 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     plot_streckeimlinienplot = True
 
     if plot_streckeimlinienplot:
-        x_est_fehler = [None] * len((x_est_x))
+        # x_est_fehler = [None] * len((x_est_x))
 
         for i in range(len(x_est_x)):
             x_est_fehler[i] = est_to.get_distance_1d(x_est_x[i], x_est_y[i])
 
         # plt.figure(figsize=(12, 12))
         plt.subplot(143)
-        plt.plot(range(1, (num_meas + 1)), x_n_x)
-        plt.plot(x_est_x)
-        plt.plot(range(1, (num_meas + 1)), x_n_y)
-        plt.plot(x_est_y)
+
+        plt.plot(range(1, (num_meas + 1)), x_n_x, c='c')
+        plt.plot(x_est_x, c='r')
+
+        plt.plot(range(1, (num_meas + 1)), x_n_y, c='m')
+        plt.plot(x_est_y, c='y')
+
         plt.xlabel('Messungsnummer')
         plt.ylabel('Koordinate [mm]')
         # plt.legend(['$x_text{wahr}', '$x_text{est}', '$y_text{wahr}', '$y_text{est}'], loc=1)
 
         ymin = min([min(x_n_x), min(x_n_y), min(x_est_x), min(x_est_y)])
         ymax = max([max(x_n_x), max(x_n_y), max(x_est_x), max(x_est_y)])
+
+        plt.ylim(ymin - 100, ymax + 100)
+        locs2 = []
+        labels2 = []
+        plt.xticks(np.arange(0, len(x_n_x), step=20))
+
+    plot_z = True
+    if plot_z:
+
+        # plt.figure(figsize=(12, 12))
+        plt.subplot(143)
+
+        plt.plot(range(1, (num_meas + 1)), x_n_z, c='c')
+        plt.plot(x_est_z, c='r')
+
+        plt.xlabel('Messungsnummer')
+        plt.ylabel('Koordinate [mm]')
+        # plt.legend(['$x_text{wahr}', '$x_text{est}', '$y_text{wahr}', '$y_text{est}'], loc=1)
+
+        ymin = min([min(x_n_z), min(x_est_z)])
+        ymax = max([max(x_n_z), max(x_est_z)])
 
         plt.ylim(ymin - 100, ymax + 100)
         locs2 = []
@@ -786,8 +829,8 @@ def main(measfile_rel_path=None, cal_param_file=None, make_plot=False, simulate_
     if plot_fehlerhistogramm:
         plt.subplot(248)
         plt.hist(x_est_fehler[3:], 30, (0, 800))  # 800
-        plt.xlabel('Fehler', fontsize=20)
-        plt.ylabel('Anzahl der Vorkommnisse', fontsize=20)
+        plt.xlabel('Fehler')
+        plt.ylabel('Anzahl der Vorkommnisse')
 
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None,
                         wspace=0.4, hspace=None)
