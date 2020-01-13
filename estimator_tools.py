@@ -41,17 +41,18 @@ class MeasurementSimulation(object):
         self.__theta_cap = range(self.__numtx)
         self.get_angles_sym()
         self.__mean = range(self.__numtx)
-        self.__var = np.ones(self.__numtx) * 500  # = tx_sigma must be dimension of tx_num
+        self.__var = np.ones(self.__numtx)  # = tx_sigma must be dimension of tx_num
 
-    def get_distance(self, i):
+    def get_distance(self, itx, i):
         """
         build distance vector and makes amount
+        :param itx:
         :param i:
         :return:
         """
-        r = np.asarray(self.__wp[i, :]).reshape(3, 1) - np.asarray(self.__tx_pos[i]).reshape(3, 1)
+        r = np.asarray(self.__wp[i, :]).reshape(3, 1) - np.asarray(self.__tx_pos[itx]).reshape(3, 1)
         self.__r_dist = np.linalg.norm(r)
-        return True
+        return self.__r_dist
 
     def set_cal_params(self, cal_param_file=None):
         if cal_param_file is not None:
@@ -66,17 +67,18 @@ class MeasurementSimulation(object):
             self.__tx_gamma = [-5.9438, -8.1549]
             print('Used default values for lambda and gamma (set cal_param_file if needed)\n')
 
-    def rss_value_generator(self, itx):
+    def rss_value_generator(self, itx, i):
         """
         generates RSS values for simulation purposes
+        :param i:
         :param itx:
         :param add_noise: set bool to simulate measurement noise
         :return: rss: simulated RSS value
         """
-        self.get_distance(itx)
+        self.get_distance(itx, i)
 
         self.__mean[itx] = -20 * np.log10(self.__r_dist) + self.__r_dist * self.__tx_lambda[itx] \
-                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])) \
+                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])**2) \
                 + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
                 + self.__n_rec * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
 
@@ -94,26 +96,27 @@ class MeasurementSimulation(object):
         for i in range(self.__numtx):
             r = np.asarray(self.__wp[i, :]).reshape(3, 1) - np.asarray(self.__tx_pos[i]).reshape(3, 1)
             r_abs = np.linalg.norm(r)
+            r_xy = np.sqrt(r[0] ** 2 + r[1] ** 2)
             '''Phi -> twisting angle'''
-            phi_cap.append(np.arccos(r[0][0] / r_abs))
+            phi_cap.append(np.arccos(r[0][0] / r_xy))
             if r[1] <= 0.0:
                 phi_cap[i] = 2 * np.pi - phi_cap[i]
 
             '''Theta -> height angle'''
-            theta_cap.append(0)
+            theta_cap.append(np.arctan(r[2] / r_xy))
 
             '''rotation matrix G -> R'''
             S_GR = np.array([[np.cos(phi_cap[i]), -np.sin(phi_cap[i]), 0.0],
                              [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
                              [0.0, 0.0, 1.0]]).T
 
-            '''rotation matrix G -> R_prime'''
+            '''rotation matrix G -> R_prime'''  # FIXME: changes in sign to Jonas because of incorrect matrix mult
             S_GR_prime = np.array(
                 [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]),
-                  -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                  np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
                  [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]),
-                  -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
-                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
+                  np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [-np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
 
             '''psi -> polarisation angle'''
             psi_low.append(get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
@@ -131,7 +134,56 @@ class MeasurementSimulation(object):
 
         return True
 
-    def measurement_simulation(self, cal_param_file=None):
+    def measurement_covariance_model(self, itx, i, covariance_of):
+        """
+        estimate measurement noise based on the received signal strength
+
+        :param: itx:
+        :return: r_mat -- measurement covariance matrix
+        """
+        if covariance_of:
+            r_mat = 0
+
+        else:
+            rss_noise_model = self.__mean[itx]
+
+            self.get_distance(itx, i)
+            r_dist = self.__r_dist
+
+            if -35 < rss_noise_model or r_dist >= 1900:
+                r_sig = 100
+                if -35 < rss_noise_model:
+                    print('RSS too high -> rx close to tx ')
+                else:
+                    print('Distance too large or angles to high.')
+
+                print('Meas_Cov_Model: for tx antenna = ' + str(itx) + ' r_sig set to ' + str(r_sig))
+
+            else:
+                # parameter for alpha have to be tuned in experiments
+                alpha_1 = 30.0
+                alpha_2 = 60.0
+                alpha_3 = 0.5
+                r_sig = np.exp(-(1.0 / alpha_1) * (rss_noise_model + alpha_2)) + alpha_3
+
+            '''uncertainty caused by angles'''
+            # parameter have to be tuned in experiments
+            beta = 15
+            gamma_1 = 8
+            gamma_2 = 8
+            if self.__theta_cap != 0.0:  # != statement means is not equal -> returns bool
+                r_sig += abs(self.__theta_cap[itx]) ** 2 * beta
+            if self.__theta_low != 0.0:
+                r_sig += abs(self.__theta_low[itx]) ** 2 * gamma_1
+            if self.__psi_low != 0.0:
+                r_sig += abs(self.__psi_low[itx]) ** 2 * gamma_2
+
+            r_mat = r_sig ** 2
+
+        self.__var[itx] = r_mat
+        return True
+
+    def measurement_simulation(self, cal_param_file=None, covariance_of=False):
         """
         simulates a measurement -> writes header like real measurements and in measdata rss values with variance
 
@@ -246,13 +298,16 @@ class MeasurementSimulation(object):
                 wp_pos = wp_data_mat[i][1:4]  # needed for error plots
 
                 for itx in range(self.__numtx):
-                    self.rss_value_generator(itx)  # generates a rss value for certain distance
+                    self.rss_value_generator(itx, i)  # generates a rss value for certain distance
+                    self.measurement_covariance_model(itx, i, covariance_of)
 
                 measfile.write(str(wp_pos[0]) + ' ' + str(wp_pos[1]) + ' ' + str(wp_pos[2]) + ' ')
                 for itx in range(self.__numtx):
-                    measfile.write(str(self.__mean[itx]) + ' ')
+                    measfile.write(str(self.__mean[itx][0]) + ' ')
                 for itx in range(self.__numtx):
                     measfile.write(str(self.__var[itx]) + ' ')
+                for itx in range(self.__numtx):
+                    measfile.write(str(self.get_distance(itx, i)) + ' ')
                 measfile.write('\n')  # -> x,y,z,meantx1,...,meantxn,vartx1,...vartxn
 
         print('The simulated values are saved in :\n' + str(measdata_filename))

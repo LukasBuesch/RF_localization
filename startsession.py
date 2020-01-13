@@ -33,6 +33,15 @@ class TxData(object):
 
             self.__tx_pos = [[1120, 1374, 0],
                              [1370, 1374, 0]]
+
+        elif num_tx is 4:
+            self.__freqtx = [434.325e6, 434.62e6, 0, 0]
+
+            self.__tx_pos = [[1000, 1400, 0],
+                             [1200, 1400, 0],
+                             [1400, 1400, 0],
+                             [1600, 1400, 0]]
+
         else:
             print('Check number of TX in TxData object!')
             exit(1)
@@ -45,10 +54,10 @@ class TxData(object):
 
 
 def waypoint_file_generating(filename=None):
-    x0 = [1020, 547, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
-    xn = [1693, 1147, 0]  # end point of rectangle (opposite corner)??
+    x0 = [1400, 1100, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
+    xn = [1000, 1100, 0]  # end point of rectangle (opposite corner)??
 
-    dxdyda = [100, 100, 0]
+    dxdyda = [-20, 0, 0]
 
     if filename is not None:
         wp_filename_rel_path = path.relpath('Waypoints/' + filename + '.txt')
@@ -67,12 +76,13 @@ def start_field_measurement():
     gc.start_field_measurement_file_select()
 
 
-def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None, cal_param_file=None):
+def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None, cal_param_file=None
+                               , covariance_of=False):
     TX = TxData(num_tx=tx_num)
     tx_pos = TX.get_tx_pos()
     freq_tx = TX.get_freq_tx()
     MS = est_to.MeasurementSimulation(tx_pos, freq_tx, way_filename, meas_filename, alpha=0)
-    MS.measurement_simulation(cal_param_file='Test_file')
+    MS.measurement_simulation(cal_param_file=cal_param_file, covariance_of=covariance_of)
     return True
 
 
@@ -120,7 +130,7 @@ def check_antennas(show_power_spectrum=False):
         Rf.plot_txrss_live()
 
 
-def position_estimation(filename=None, cal_param_file=None, sym_meas=None):
+def position_estimation(x_start=None, filename=None, cal_param_file=None, sym_meas=None):
     if filename is not None:
         if sym_meas is True:
             measfile_rel_path = path.relpath('Simulated_measurements/' + filename + '.txt')
@@ -130,7 +140,7 @@ def position_estimation(filename=None, cal_param_file=None, sym_meas=None):
     else:
         measfile_rel_path = hc_tools.select_file(functionname='position estimation')
 
-    est.main(sym_meas, measfile_rel_path, cal_param_file, make_plot=True)
+    est.main(sym_meas, x_start, measfile_rel_path, cal_param_file, make_plot=True)
 
 
 if __name__ == '__main__':
@@ -141,15 +151,16 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='wp_file_sym_test', meas_filename='first_try',
-    #                            cal_param_file='Test_file')
+    # simulate_field_measurement(tx_num=2, way_filename='wp_debug', meas_filename='sym_debugging',
+    #                            cal_param_file='Test_file', covariance_of=False)
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
         # if no input is selected file function active
 
-    position_estimation(filename='second_try', cal_param_file='Test_file', sym_meas=False)
+    position_estimation(x_start=[1000, 1200, 0], filename='sym_debugging_tx_4'
+                        , cal_param_file='Test_file_4', sym_meas=True)
         # if no input is selected file function active
 
     # check_antennas(False)

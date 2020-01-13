@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, x_start=[1000, 1000, 0], sig_x1=500, sig_x2=500, sig_z=500, sig_w1=100, sig_w2=100, sig_wz=100,
-                 z_depth_sigma=1, alpha=0.0*np.pi, inclined_plane=False):
+    def __init__(self, x_start=None, sig_x1=500, sig_x2=500, sig_z=500, sig_w1=500, sig_w2=500, sig_wz=500,
+                 z_depth_sigma=1, alpha=0.0 * np.pi, inclined_plane=False):
 
         """
         initialize EKF class
@@ -87,6 +87,9 @@ class Extended_Kalman_Filter(object):
         self.__rss_meas = None  # measurement matrix
         self.__y_est = None  # y matrix for expected measurement
         self.__r_dist = None  # to write estimated distance in
+
+        # for plotting
+        self.__y_tild = 0
 
     '''
     parameter access
@@ -253,6 +256,9 @@ class Extended_Kalman_Filter(object):
     def get_x_est(self):
         return self.__x_est
 
+    def get_x_est_0(self):
+        return self.__x_est_0
+
     def get_p_mat(self):
         return self.__p_mat
 
@@ -268,6 +274,9 @@ class Extended_Kalman_Filter(object):
     def get_D_0_rx(self):
         return self.__D_0_rx
 
+    def get_y_tild(self):
+        return self.__y_tild
+
     '''
     EKF functions
     '''
@@ -276,10 +285,12 @@ class Extended_Kalman_Filter(object):
 
     def h_rss(self, itx, x=None):
         if x is None:
-            x = self.__x_est[:2]
+            x = self.__x_est
         tx_pos = self.__tx_param[itx][0]  # position of the transceiver
 
-        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2)
+        a = x[2]
+
+        r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2 + + (x[2] - tx_pos[2]) ** 2)
 
         # RSS equation according to BA (Lukas Buesch)
         y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
@@ -292,7 +303,7 @@ class Extended_Kalman_Filter(object):
     '''jacobian of the measurement function'''
 
     def h_rss_jacobian(self, itx):
-        x = self.__x_est[:2]
+        x = self.__x_est
 
         h_rss_jac = np.zeros((self.__tx_num, 2))
         jac_rss_analytic = False  # set bool to solve Jacobi matrix analytically
@@ -316,13 +327,13 @@ class Extended_Kalman_Filter(object):
 
             d_xy = 1  # stepsize for approximated calculation -> change if needed
 
-            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[d_xy], [0]]))
-            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[d_xy], [0]]))
-            h_rss_jac[0, itx] = (y_est_p - y_est_n) / (2 * d_xy)
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[d_xy], [0], [0]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[d_xy], [0], [0]]))
+            h_rss_jac[itx, 0] = (y_est_p - y_est_n) / (2 * d_xy)
 
-            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[0], [d_xy]]))
-            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [d_xy]]))
-            h_rss_jac[1, itx] = (y_est_p - y_est_n) / (2 * d_xy)
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[0], [d_xy], [0]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [d_xy], [0]]))
+            h_rss_jac[itx, 1] = (y_est_p - y_est_n) / (2 * d_xy)
 
         self.__h_rss_jac = np.asarray(h_rss_jac)
         return True
@@ -442,6 +453,8 @@ class Extended_Kalman_Filter(object):
             alpha_3 = 0.5
             r_sig = np.exp(-(1.0 / alpha_1) * (rss_noise_model + alpha_2)) + alpha_3
 
+            # r_sig = 0.3  # FIXME: testing!!
+
         '''uncertainty caused by angles'''
         # parameter have to be tuned in experiments
         beta = 15
@@ -465,6 +478,7 @@ class Extended_Kalman_Filter(object):
     def ekf_prediction(self):  # if necessary use other prediction model
         """ prediction """
         self.__x_est = self.__x_est  # prediction assumes that vehicle holds the position
+        print('prediction ' + str(self.__x_est))
         self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat  # .dot -> dot product
 
         # estimate angles
@@ -489,21 +503,29 @@ class Extended_Kalman_Filter(object):
             # estimate measurement from x_est
             self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
             y_tild = self.__rss_meas[itx] - self.__y_est[itx]
-            print('y_tild_RSS_' + str(itx) + ' = ' + str(y_tild))
+
+            self.__y_tild = y_tild  # for plotting purposes
+
+            print('y_tild_RSS_' + str(itx) + ' = ' + str(y_tild) + '\n')
+
+            print('RSS_est_' + str(itx) + ' = ' + str(self.__y_est[itx]))
+            print('r_dist_' + str(itx) + ' = ' + str(self.__r_dist[itx]) + '\n')
 
             # estimate measurement noise based on
             r_mat = self.measurement_covariance_model(itx)
 
             # calc K-gain
             self.h_rss_jacobian(itx)  # set Jacobi matrix
-            s_mat = np.dot(self.__h_rss_jac[:, itx].T, np.dot(self.__p_mat[:2, :2], self.__h_rss_jac[:, itx])) + r_mat
+
+            s_mat = np.dot(self.__h_rss_jac[itx, :].T, np.dot(self.__p_mat[:2, :2], self.__h_rss_jac[itx, :])) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat[:2, :2], np.divide(self.__h_rss_jac[:, itx], s_mat).reshape(2, 1))
+            k_mat = np.dot(self.__p_mat[:2, :2], np.divide(self.__h_rss_jac[itx, :], s_mat).reshape(2, 1))
             # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
+            print('update_' + str(itx) + ' = ' + str(self.__x_est))
             self.__x_est[:2] = self.__x_est[:2] + k_mat * y_tild  # = x_est[:2] + k * y_tild
-            self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[:, itx])) * \
-                                   self.__p_mat[:2, :2]
+            self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[itx, :])) \
+                                   * self.__p_mat[:2, :2]
             # = (I-KH)*P
 
         '''determine z_Tx position'''
@@ -531,10 +553,11 @@ class Extended_Kalman_Filter(object):
         return True
 
 
-def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=False):
+def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=None, make_plot=False):
     """
     executive programm
 
+    :param x_start:
     :param measfile_rel_path:
     :param cal_param_file:
     :param make_plot:
@@ -543,7 +566,7 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
     """
 
     '''initialize values for EKF'''
-    EKF = Extended_Kalman_Filter()  # initialize object ->check initial values in __init__ function
+    EKF = Extended_Kalman_Filter(x_start=x_start)  # initialize object ->check initial values in __init__ function
     est_to.read_measfile_header(object=EKF, analyze_tx=[1, 2],
                                 measfile_path=measfile_rel_path)  # write params from header in object
     EKF.set_cal_params(cal_param_file=cal_param_file)
@@ -557,6 +580,9 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     x_est_list = []
+    x_est_list.append([1000, 1200, 0])
+    y_est_list = []
+    rss_meas = []
 
     for i in range(num_meas):
         print('\n \n \nPassage number:' + str(i + 1) + '\n')
@@ -572,12 +598,20 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
         print('x_est = ')
         print(str(EKF.get_x_est()) + '\n')
 
+        '''make list for plotting'''
         x = EKF.get_x_est()[0][0]
         y = EKF.get_x_est()[1][0]
         z = EKF.get_x_est()[2][0]
 
         x_est_list.append([x, y, z])  # for plotting purposes
-        # x_est_list.append(EKF.get_x_est().tolist())
+        # x_est_list.append(EKF.get_x_est())
+
+        y_tild_list = EKF.get_y_tild()
+
+        y_est_list.append(EKF.get_y_est().tolist())
+
+        meas = meas_data[i][:]
+        rss_meas.append(meas[3:3 + EKF.get_tx_num()].tolist())
 
     print('\n* * * * * *\n'
           'estimator.py stopped!\n'
@@ -737,7 +771,7 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
         '''
         here begins the tracking plot
         '''
-        plt.subplot(121)
+        plt.subplot(221)
         # plt.subplot(111)
 
         plt.plot(x_n_x, x_n_y, marker=".", c='c')
@@ -756,7 +790,7 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
         plt.ylabel('Y - Achse [mm]')
         plt.grid()
 
-        #add annotations
+        # add annotations
 
         # plt.legend(['$x_text{wahr}', '$x_text{R,est}', '$x_text{Ti}'], loc=3, ncol=3)  # best:0, or=1, ol=2, ul=3, ur=4
         # plt.title('Plot der wahren und geschaetzten Punkte', fontsize=25)
@@ -781,7 +815,7 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
             x_est_fehler[i] = est_to.get_distance_1d(x_est_x[i], x_est_y[i])
 
         # plt.figure(figsize=(12, 12))
-        plt.subplot(143)
+        plt.subplot(222)
 
         plt.plot(range(1, (num_meas + 1)), x_n_x, c='c')
         plt.plot(x_est_x, c='r')
@@ -803,9 +837,8 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
 
     plot_z = True
     if plot_z:
-
         # plt.figure(figsize=(12, 12))
-        plt.subplot(143)
+        plt.subplot(223)
 
         plt.plot(range(1, (num_meas + 1)), x_n_z, c='c')
         plt.plot(x_est_z, c='r')
@@ -821,6 +854,40 @@ def main(simulate_meas, measfile_rel_path=None, cal_param_file=None, make_plot=F
         locs2 = []
         labels2 = []
         plt.xticks(np.arange(0, len(x_n_x), step=20))
+
+    plot_meas_sym = True
+    if plot_meas_sym:
+        # plt.figure(figsize=(12, 12))
+        plt.subplot(224)
+
+        # make list for every Tx
+        y_est_0 = []
+        y_est_1 = []
+        rss_0 = []
+        rss_1 = []
+        for i in range(EKF.get_num_meas()):
+            y_est_0.append(y_est_list[i][0])
+            y_est_1.append(y_est_list[i][1])
+
+            rss_0.append(rss_meas[i][0])
+            rss_1.append(rss_meas[i][1])
+
+        plt.plot(range(1, (num_meas + 1)), y_est_0,'.-', c='r')
+        plt.plot(range(1, (num_meas + 1)), y_est_1,'.-', c='y')
+
+        plt.plot(range(1, (num_meas + 1)), rss_0,'.-', c='c')
+        plt.plot(range(1, (num_meas + 1)), rss_1,'.-', c='g')
+
+        ymin = min([min(y_est_0), min(rss_0), min(y_est_1), min(rss_1)])
+        ymax = max([max(y_est_0), max(rss_0), max(y_est_1), max(rss_1)])
+
+        # plt.axis([xmin, xmax, ymin, ymax])
+        plt.xlabel('Messungsnummer')
+        plt.ylabel('RSS')
+        plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_true_T1', 'RSS_true_T2'], loc=1)
+
+        plt.ylim(ymin - 2, ymax + 2)
+        plt.xticks(np.arange(0, len(y_est_0) + 1, step=1))
 
     '''Fehlerhistogramm'''
 
