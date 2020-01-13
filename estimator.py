@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 class Extended_Kalman_Filter(object):
 
     def __init__(self, x_start=None, sig_x1=500, sig_x2=500, sig_z=500, sig_w1=500, sig_w2=500, sig_wz=500,
-                 z_depth_sigma=1, alpha=0.0 * np.pi, inclined_plane=False):
+                 z_depth_sigma=1, alpha=0 * np.pi, inclined_plane=False):
 
         """
         initialize EKF class
@@ -48,8 +48,8 @@ class Extended_Kalman_Filter(object):
         self.__x_est_0 = np.array([[x_start[0]], [x_start[1]], [x_start[2]]])
         self.__x_est = self.__x_est_0
 
-        self.__x_real = 0  # needed for z_depth calculation
-        self.__z_depth_0 = np.sin(self.__alpha) * self.__x_real
+        self.__pos_real = np.array([0, 0, 0])  # needed for z_depth calculation
+        self.__z_depth_0 = np.sin(self.__alpha) * self.__pos_real[0]
         self.__z_depth = self.__z_depth_0  # z position in SR coordinates (from depth sensor -> simulated by z-Gantry)
 
         self.__z_UR = [[-np.sin(self.__alpha)], [0], [np.cos(self.__alpha)]]  # orientation of Rx in Tx-coordinates
@@ -205,8 +205,8 @@ class Extended_Kalman_Filter(object):
         self.__p_mat = p0
         return True
 
-    def set_x_real(self, x_real):
-        self.__x_real = x_real
+    def set_pos_real(self, pos_real):
+        self.__pos_real = pos_real
         return True
 
     '''get params'''
@@ -305,7 +305,7 @@ class Extended_Kalman_Filter(object):
     def h_rss_jacobian(self, itx):
         x = self.__x_est
 
-        h_rss_jac = np.zeros((self.__tx_num, 2))
+        h_rss_jac = np.zeros((self.__tx_num, 3))
         jac_rss_analytic = False  # set bool to solve Jacobi matrix analytically
         if jac_rss_analytic:  # not supported yet
 
@@ -327,13 +327,20 @@ class Extended_Kalman_Filter(object):
 
             d_xy = 1  # stepsize for approximated calculation -> change if needed
 
+            # varying x
             y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[d_xy], [0], [0]]))
             y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[d_xy], [0], [0]]))
             h_rss_jac[itx, 0] = (y_est_p - y_est_n) / (2 * d_xy)
 
+            # varying y
             y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[0], [d_xy], [0]]))
             y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [d_xy], [0]]))
             h_rss_jac[itx, 1] = (y_est_p - y_est_n) / (2 * d_xy)
+
+            # varying z
+            y_est_p, r_dist_p = self.h_rss(itx, x + np.array([[0], [0], [d_xy]]))
+            y_est_n, r_dist_n = self.h_rss(itx, x - np.array([[0], [0], [d_xy]]))
+            h_rss_jac[itx, 2] = (y_est_p - y_est_n) / (2 * d_xy)
 
         self.__h_rss_jac = np.asarray(h_rss_jac)
         return True
@@ -344,18 +351,16 @@ class Extended_Kalman_Filter(object):
          x_est[:2] with z depth in SR coordinates
         :return:
         """
-        self.__z_depth = np.sin(self.__alpha) * self.__x_real
+        self.__z_depth = np.sin(self.__alpha) * self.__pos_real[0]
         # z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
-        z_offset = 0
+        z_offset = self.__pos_real[2]
 
-        # if self.__inclined_plane_real:
-        #     z_depth_prime = self.__z_depth - z_offset
-        #     # calculates intersection of gradient from x_est with the depth in TA coordinates
-        #
-        # else:
-        #     z_depth_prime = self.__z_depth / np.cos(self.__alpha) - z_offset
+        if self.__inclined_plane_real:
+            z_depth_prime = self.__z_depth - z_offset
+            # calculates intersection of gradient from x_est with the depth in TA coordinates
 
-        z_depth_prime = self.__z_depth
+        else:
+            z_depth_prime = self.__z_depth + z_offset
 
         z_est = np.cos(self.__alpha) * z_depth_prime + np.tan(self.__alpha) * (self.__x_est[0]
                                                                                + np.sin(self.__alpha) * z_depth_prime)
@@ -403,13 +408,13 @@ class Extended_Kalman_Filter(object):
                              [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
                              [0.0, 0.0, 1.0]]).T
 
-            '''rotation matrix G -> R_prime'''  # FIXME: changes in sign to Jonas because of incorrect matrix mult
+            '''rotation matrix G -> R_prime'''
             S_GR_prime = np.array(
                 [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]),
-                  np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                  -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
                  [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]),
-                  np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
-                 [-np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
+                  -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
 
             '''psi -> polarisation angle'''
             psi_low.append(est_to.get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
@@ -478,7 +483,7 @@ class Extended_Kalman_Filter(object):
     def ekf_prediction(self):  # if necessary use other prediction model
         """ prediction """
         self.__x_est = self.__x_est  # prediction assumes that vehicle holds the position
-        print('prediction ' + str(self.__x_est))
+        # print('prediction ' + str(self.__x_est))
         self.__p_mat = self.__i_mat.dot(self.__p_mat.dot(self.__i_mat)) + self.__q_mat  # .dot -> dot product
 
         # estimate angles
@@ -488,7 +493,7 @@ class Extended_Kalman_Filter(object):
 
     def ekf_update(self, meas_data, rss_low_lim=-120):
         self.__rss_meas = meas_data[3:3 + self.__tx_num]  # corresponds to rss
-        print('rss = ')
+        # print('rss = ')
         print(str(self.__rss_meas) + '\n')
 
         ''' if no valid measurement signal is received, reset ekf '''
@@ -506,10 +511,10 @@ class Extended_Kalman_Filter(object):
 
             self.__y_tild = y_tild  # for plotting purposes
 
-            print('y_tild_RSS_' + str(itx) + ' = ' + str(y_tild) + '\n')
+            # print('y_tild_RSS_' + str(itx) + ' = ' + str(y_tild) + '\n')
 
             print('RSS_est_' + str(itx) + ' = ' + str(self.__y_est[itx]))
-            print('r_dist_' + str(itx) + ' = ' + str(self.__r_dist[itx]) + '\n')
+            # print('r_dist_' + str(itx) + ' = ' + str(self.__r_dist[itx]) + '\n')
 
             # estimate measurement noise based on
             r_mat = self.measurement_covariance_model(itx)
@@ -517,38 +522,38 @@ class Extended_Kalman_Filter(object):
             # calc K-gain
             self.h_rss_jacobian(itx)  # set Jacobi matrix
 
-            s_mat = np.dot(self.__h_rss_jac[itx, :].T, np.dot(self.__p_mat[:2, :2], self.__h_rss_jac[itx, :])) + r_mat
+            s_mat = np.dot(self.__h_rss_jac[itx, :], np.dot(self.__p_mat, self.__h_rss_jac[itx, :].T)) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat[:2, :2], np.divide(self.__h_rss_jac[itx, :], s_mat).reshape(2, 1))
+            k_mat = np.dot(self.__p_mat, np.divide(self.__h_rss_jac[itx, :], s_mat).reshape(3, 1))
             # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
-            print('update_' + str(itx) + ' = ' + str(self.__x_est))
-            self.__x_est[:2] = self.__x_est[:2] + k_mat * y_tild  # = x_est[:2] + k * y_tild
+            # print('update_' + str(itx) + ' = ' + str(self.__x_est))
+            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est[:2] + k * y_tild
             self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[itx, :])) \
                                    * self.__p_mat[:2, :2]
             # = (I-KH)*P
 
-        '''determine z_Tx position'''
-        # estimate intersection from xy position
-        z_est = self.h_z_depth()
-        y_tild = z_est - self.__x_est[2]  # z_t - h(\mu_bar_t) --> not z -prediction through h but z through h - predict
-        print('y_tild_Z_Tx' + ' = ' + str(y_tild))
-
-        # get measurement noise (for z_depth a constant value)
-        r_mat = self.__z_depth_sigma ** 2
-
-        # calculate K-gain
-        self.h_z_jacobian()  # set jacobi matrix
-        s_mat = np.dot(self.__h_z_jac.T, np.dot(self.__p_mat, self.__h_z_jac)) + r_mat
-        # = H^t * P * H + R
-        k_mat = np.dot(self.__p_mat, np.divide(self.__h_z_jac, s_mat).reshape(3, 1))
-        # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
-
-        a = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
-
-        self.__x_est[2] = self.__x_est[2] + k_mat[2] * y_tild  # = x_est[2] + k * y_tild
-        self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
-        # = (I-KH)*P
+        # '''determine z_Tx position'''
+        # # estimate intersection from xy position
+        # z_est = self.h_z_depth()
+        # y_tild = z_est - self.__x_est[2]  # z_t - h(\mu_bar_t) --> not z -prediction through h but z through h - predict
+        # # print('y_tild_Z_Tx' + ' = ' + str(y_tild))
+        #
+        # # get measurement noise (for z_depth a constant value)
+        # r_mat = self.__z_depth_sigma ** 2
+        #
+        # # calculate K-gain
+        # self.h_z_jacobian()  # set jacobi matrix
+        # s_mat = np.dot(self.__h_z_jac.T, np.dot(self.__p_mat, self.__h_z_jac)) + r_mat
+        # # = H^t * P * H + R
+        # k_mat = np.dot(self.__p_mat, np.divide(self.__h_z_jac, s_mat).reshape(3, 1))
+        # # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
+        #
+        # a = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
+        #
+        # self.__x_est[2] = self.__x_est[2] + k_mat[2] * y_tild  # = x_est[2] + k * y_tild
+        # self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
+        # # = (I-KH)*P
 
         return True
 
@@ -580,7 +585,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
     x_est_list = []
-    x_est_list.append([1000, 1200, 0])
+    x_est_list.append(x_start)
     y_est_list = []
     rss_meas = []
 
@@ -589,8 +594,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         print('meas_data num :' + str(i) + str(meas_data[i][:]) + '\n')
 
         # setting depth value from wp position to simulate depth sensor
-        EKF.set_x_real(meas_data[i][0])
-
+        EKF.set_pos_real(meas_data[i][0:3])
         EKF.ekf_prediction()
 
         EKF.ekf_update(meas_data[i][:])
@@ -817,43 +821,39 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         # plt.figure(figsize=(12, 12))
         plt.subplot(222)
 
-        plt.plot(range(1, (num_meas + 1)), x_n_x, c='c')
+        plt.plot(range(0, num_meas), x_n_x, c='c')
         plt.plot(x_est_x, c='r')
 
-        plt.plot(range(1, (num_meas + 1)), x_n_y, c='m')
+        plt.plot(range(0, num_meas), x_n_y, c='m')
         plt.plot(x_est_y, c='y')
 
         plt.xlabel('Messungsnummer')
         plt.ylabel('Koordinate [mm]')
-        # plt.legend(['$x_text{wahr}', '$x_text{est}', '$y_text{wahr}', '$y_text{est}'], loc=1)
+        plt.legend(['x_true', 'x_est', 'y_true', 'y_est'], loc=1)
 
         ymin = min([min(x_n_x), min(x_n_y), min(x_est_x), min(x_est_y)])
         ymax = max([max(x_n_x), max(x_n_y), max(x_est_x), max(x_est_y)])
 
         plt.ylim(ymin - 100, ymax + 100)
-        locs2 = []
-        labels2 = []
-        plt.xticks(np.arange(0, len(x_n_x), step=20))
+        plt.xticks(np.arange(0, len(x_n_x), step=5))
 
     plot_z = True
     if plot_z:
         # plt.figure(figsize=(12, 12))
         plt.subplot(223)
 
-        plt.plot(range(1, (num_meas + 1)), x_n_z, c='c')
+        plt.plot(range(0, num_meas), x_n_z, c='c')
         plt.plot(x_est_z, c='r')
 
         plt.xlabel('Messungsnummer')
         plt.ylabel('Koordinate [mm]')
-        # plt.legend(['$x_text{wahr}', '$x_text{est}', '$y_text{wahr}', '$y_text{est}'], loc=1)
+        plt.legend(['z_true', 'z_est'], loc=1)
 
         ymin = min([min(x_n_z), min(x_est_z)])
         ymax = max([max(x_n_z), max(x_est_z)])
 
         plt.ylim(ymin - 100, ymax + 100)
-        locs2 = []
-        labels2 = []
-        plt.xticks(np.arange(0, len(x_n_x), step=20))
+        plt.xticks(np.arange(0, len(x_n_x), step=5))
 
     plot_meas_sym = True
     if plot_meas_sym:
@@ -887,7 +887,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_true_T1', 'RSS_true_T2'], loc=1)
 
         plt.ylim(ymin - 2, ymax + 2)
-        plt.xticks(np.arange(0, len(y_est_0) + 1, step=1))
+        plt.xticks(np.arange(0, len(y_est_0) + 1, step=5))
 
     '''Fehlerhistogramm'''
 

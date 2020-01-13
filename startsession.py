@@ -151,15 +151,15 @@ if __name__ == '__main__':
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 
-    # simulate_field_measurement(tx_num=2, way_filename='wp_debug', meas_filename='sym_debugging',
-    #                            cal_param_file='Test_file', covariance_of=False)
+    # simulate_field_measurement(tx_num=4, way_filename='wp_debug_z', meas_filename='sym_debugging_z_tx_4',
+    #                            cal_param_file='Test_file_4', covariance_of=False)
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
         # if no input is selected file function active
 
-    position_estimation(x_start=[1000, 1200, 0], filename='sym_debugging_tx_4'
+    position_estimation(x_start=[1000, 1200, 10], filename='sym_debugging_tx_4'
                         , cal_param_file='Test_file_4', sym_meas=True)
         # if no input is selected file function active
 

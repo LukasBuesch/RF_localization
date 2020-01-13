@@ -110,13 +110,13 @@ class MeasurementSimulation(object):
                              [np.sin(phi_cap[i]), np.cos(phi_cap[i]), 0.0],
                              [0.0, 0.0, 1.0]]).T
 
-            '''rotation matrix G -> R_prime'''  # FIXME: changes in sign to Jonas because of incorrect matrix mult
+            '''rotation matrix G -> R_prime'''
             S_GR_prime = np.array(
                 [[np.cos(phi_cap[i]) * np.cos(theta_cap[i]), -np.sin(phi_cap[i]),
-                  np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
+                  -np.cos(phi_cap[i]) * np.sin(theta_cap[i])],
                  [np.sin(phi_cap[i]) * np.cos(theta_cap[i]), np.cos(phi_cap[i]),
-                  np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
-                 [-np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
+                  -np.sin(phi_cap[i]) * np.sin(theta_cap[i])],
+                 [np.sin(theta_cap[i]), 0.0, np.cos(theta_cap[i])]]).T
 
             '''psi -> polarisation angle'''
             psi_low.append(get_angle_v_on_plane(np.asarray(self.__z_UR), np.array(S_GR_prime[2])[np.newaxis].T,
@@ -565,6 +565,7 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
     :return:
     """
     v_x_proj = np.dot(v_x.T, v_2)[0][0] * v_2 + np.dot(v_x.T, v_1main)[0][0] * v_1main  # np.dot -> dot product
+
     if np.linalg.norm(v_x_proj) == 0:
         angle_x = np.pi * 0.5  # if dot product = 0 -> angle_x is pi/2
     else:
