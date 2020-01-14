@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, x_start=None, sig_x1=500, sig_x2=500, sig_z=500, sig_w1=500, sig_w2=500, sig_wz=500,
-                 z_depth_sigma=1, alpha=0 * np.pi, inclined_plane=False):
+    def __init__(self, alpha, x_start=None, sig_x1=500, sig_x2=500, sig_z=500, sig_w1=500, sig_w2=500, sig_wz=500,
+                 z_depth_sigma=1, n_tx=0, n_rx=100, inclined_plane=False):
 
         """
         initialize EKF class
@@ -55,14 +55,14 @@ class Extended_Kalman_Filter(object):
         self.__z_UR = [[-np.sin(self.__alpha)], [0], [np.cos(self.__alpha)]]  # orientation of Rx in Tx-coordinates
 
         # values for RF model
-        hpbw = 30.0  # 13.0  # half power beam width (check BA Jonas -> 32,47 +- 6,03 deg)
-        hpbw_rad = hpbw * np.pi / 180
-        antenna_D = -172.4 + 191 * np.sqrt(0.818 + (1.0 / hpbw))  # approx according to Pozar -> hpbw in deg
-        antenna_n = np.log(0.5) / np.log(np.cos(hpbw_rad * 0.5))  # hpbw in cos -> needed in rad
-        self.__n_tx = antenna_n * 6  # coefficient of rss model for cos
-        self.__n_rx = antenna_n * 6  # coefficient of rss model for cos
-        self.__D_0_tx = antenna_D  # coefficient before cos of transmitter (tx)
-        self.__D_0_rx = antenna_D  # coefficient before cos of receiver (rx)
+        # hpbw = 30.0  # 13.0  # half power beam width (check BA Jonas -> 32,47 +- 6,03 deg)
+        # hpbw_rad = hpbw * np.pi / 180
+        # antenna_D = -172.4 + 191 * np.sqrt(0.818 + (1.0 / hpbw))  # approx according to Pozar -> hpbw in deg
+        # antenna_n = np.log(0.5) / np.log(np.cos(hpbw_rad * 0.5))  # hpbw in cos -> needed in rad
+        self.__n_tx = n_tx  # coefficient of rss model for cos
+        self.__n_rx = n_rx  # coefficient of rss model for cos
+        # self.__D_0_tx = antenna_D  # coefficient before cos of transmitter (tx)
+        # self.__D_0_rx = antenna_D  # coefficient before cos of receiver (rx)
 
         # standard deviations of position P matrix
         self.__sig_x1 = sig_x1
@@ -293,10 +293,13 @@ class Extended_Kalman_Filter(object):
         r_dist = np.sqrt((x[0] - tx_pos[0]) ** 2 + (x[1] - tx_pos[1]) ** 2 + + (x[2] - tx_pos[2]) ** 2)
 
         # RSS equation according to BA (Lukas Buesch)
-        y_rss = -20 * np.log10(r_dist) + r_dist * self.__tx_lambda[itx] \
-                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx]) ** 2) \
-                + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
-                + self.__n_rx * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))
+        r_log = -20 * np.log10(r_dist)
+        r_lamb = r_dist * self.__tx_lambda[itx]
+        psi_log = np.log10(np.cos(self.__psi_low[itx]) ** 2)
+        n_tx_log = self.__n_tx * np.log10(np.cos(self.__theta_cap[itx]))
+        n_rx_log = self.__n_rx * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))
+
+        y_rss = r_log + r_lamb + self.__tx_gamma[itx] + psi_log + n_tx_log + n_rx_log
 
         return y_rss, r_dist
 
@@ -347,36 +350,25 @@ class Extended_Kalman_Filter(object):
 
     def h_z_depth(self):
         """
-        estimates z position in TA coordinates by calculating intersection of z-vector standing on xy plane starting in
-         x_est[:2] with z depth in SR coordinates
+
         :return:
         """
-        self.__z_depth = np.sin(self.__alpha) * self.__pos_real[0]
-        # z_offset = np.asarray(self.__tx_pos)[0, 2]  # offset from SR to TA coordinate system
-        z_offset = self.__pos_real[2]
+        z_est_sr = - np.sin(self.__alpha) * self.__x_est[0] + np.cos(self.__alpha) * self.__x_est[2]
 
-        if self.__inclined_plane_real:
-            z_depth_prime = self.__z_depth - z_offset
-            # calculates intersection of gradient from x_est with the depth in TA coordinates
-
-        else:
-            z_depth_prime = self.__z_depth + z_offset
-
-        z_est = np.cos(self.__alpha) * z_depth_prime + np.tan(self.__alpha) * (self.__x_est[0]
-                                                                               + np.sin(self.__alpha) * z_depth_prime)
-
-        return z_est
+        return z_est_sr
 
     def h_z_jacobian(self):
 
         h_z_jac = np.zeros(3)
 
-        # jacobi should change only for z pos
-        h_z_jac[0] = np.tan(self.__alpha)
+        # partial diff to x
+        h_z_jac[0] = -np.sin(self.__alpha)
+
+        # partial diff to y
         h_z_jac[1] = 0
 
-        # jacobi for z position
-        h_z_jac[2] = np.cos(self.__alpha) + np.tan(self.__alpha) * np.sin(self.__alpha)
+        # partial diff to z
+        h_z_jac[2] = np.cos(self.__alpha)
 
         self.__h_z_jac = np.asarray(h_z_jac)
         return True
@@ -453,8 +445,8 @@ class Extended_Kalman_Filter(object):
 
         else:
             # parameter for alpha have to be tuned in experiments
-            alpha_1 = 30.0
-            alpha_2 = 60.0
+            alpha_1 = 30
+            alpha_2 = 70
             alpha_3 = 0.5
             r_sig = np.exp(-(1.0 / alpha_1) * (rss_noise_model + alpha_2)) + alpha_3
 
@@ -503,6 +495,8 @@ class Extended_Kalman_Filter(object):
             print('rss' + str(self.__rss_meas))
             return True
 
+        z_est = self.__x_est[2]  # put z_est through RF Update
+
         '''iterate through all tx-rss-values and estimate xy position in TA coordinates'''
         for itx in range(self.__tx_num):
             # estimate measurement from x_est
@@ -513,7 +507,7 @@ class Extended_Kalman_Filter(object):
 
             # print('y_tild_RSS_' + str(itx) + ' = ' + str(y_tild) + '\n')
 
-            print('RSS_est_' + str(itx) + ' = ' + str(self.__y_est[itx]))
+            # print('RSS_est_' + str(itx) + ' = ' + str(self.__y_est[itx]))
             # print('r_dist_' + str(itx) + ' = ' + str(self.__r_dist[itx]) + '\n')
 
             # estimate measurement noise based on
@@ -532,28 +526,32 @@ class Extended_Kalman_Filter(object):
             self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[itx, :])) \
                                    * self.__p_mat[:2, :2]
             # = (I-KH)*P
+            self.__x_est[2] = z_est  # hold z_est constant for all iterations
 
-        # '''determine z_Tx position'''
-        # # estimate intersection from xy position
-        # z_est = self.h_z_depth()
-        # y_tild = z_est - self.__x_est[2]  # z_t - h(\mu_bar_t) --> not z -prediction through h but z through h - predict
-        # # print('y_tild_Z_Tx' + ' = ' + str(y_tild))
-        #
-        # # get measurement noise (for z_depth a constant value)
-        # r_mat = self.__z_depth_sigma ** 2
-        #
-        # # calculate K-gain
-        # self.h_z_jacobian()  # set jacobi matrix
-        # s_mat = np.dot(self.__h_z_jac.T, np.dot(self.__p_mat, self.__h_z_jac)) + r_mat
-        # # = H^t * P * H + R
-        # k_mat = np.dot(self.__p_mat, np.divide(self.__h_z_jac, s_mat).reshape(3, 1))
-        # # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
-        #
-        # a = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
-        #
-        # self.__x_est[2] = self.__x_est[2] + k_mat[2] * y_tild  # = x_est[2] + k * y_tild
-        # self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
-        # # = (I-KH)*P
+        self.__x_est[2] = z_est
+
+        '''determine z_Tx position'''
+        # estimate intersection from xy position
+
+        self.__z_depth = -np.sin(self.__alpha) * self.__pos_real[0]  # self.__x_est[0]
+
+        y_est = self.h_z_depth()
+        y_tild = self.__z_depth - y_est  # z_t - h(\mu_bar_t)
+        # print('y_tild_Z_Tx' + ' = ' + str(y_tild))
+
+        # get measurement noise (for z_depth a constant value)
+        r_mat = self.__z_depth_sigma ** 2
+
+        # calculate K-gain
+        self.h_z_jacobian()  # set jacobi matrix
+        s_mat = np.dot(self.__h_z_jac.T, np.dot(self.__p_mat, self.__h_z_jac)) + r_mat
+        # = H^t * P * H + R
+        k_mat = np.dot(self.__p_mat, np.divide(self.__h_z_jac, s_mat).reshape(3, 1))
+        # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
+
+        self.__x_est[2] = self.__x_est[2] + k_mat[2] * y_tild  # = x_est[2] + k * y_tild
+        self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_z_jac)) * self.__p_mat
+        # = (I-KH)*P
 
         return True
 
@@ -570,17 +568,19 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     :return:
     """
 
+    '''load measurement data'''
+    meas_data, alpha = est_to.get_meas_values(simulate_meas, measfile_rel_path)  # possibly write this data into class
+    # print('meas_data:\n' + str(meas_data))
+
     '''initialize values for EKF'''
-    EKF = Extended_Kalman_Filter(x_start=x_start)  # initialize object ->check initial values in __init__ function
+    EKF = Extended_Kalman_Filter(alpha=alpha, x_start=x_start)  # initialize object ->check initial values in __init__ function
     est_to.read_measfile_header(object=EKF, analyze_tx=[1, 2],
                                 measfile_path=measfile_rel_path)  # write params from header in object
     EKF.set_cal_params(cal_param_file=cal_param_file)
     EKF.set_tx_param()
-    EKF.set_initial_values()
 
-    '''load measurement data'''
-    meas_data = est_to.get_meas_values(simulate_meas, measfile_rel_path)  # possibly write this data into class
-    # print('meas_data:\n' + str(meas_data))
+    EKF.set_alpha(alpha)
+    EKF.set_initial_values()
 
     '''EKF loop'''
     num_meas = EKF.get_num_meas()
@@ -872,11 +872,11 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
             rss_0.append(rss_meas[i][0])
             rss_1.append(rss_meas[i][1])
 
-        plt.plot(range(1, (num_meas + 1)), y_est_0,'.-', c='r')
-        plt.plot(range(1, (num_meas + 1)), y_est_1,'.-', c='y')
+        plt.plot(range(1, (num_meas + 1)), y_est_0, '.-', c='r')
+        plt.plot(range(1, (num_meas + 1)), y_est_1, '.-', c='y')
 
-        plt.plot(range(1, (num_meas + 1)), rss_0,'.-', c='c')
-        plt.plot(range(1, (num_meas + 1)), rss_1,'.-', c='g')
+        plt.plot(range(1, (num_meas + 1)), rss_0, '.-', c='c')
+        plt.plot(range(1, (num_meas + 1)), rss_1, '.-', c='g')
 
         ymin = min([min(y_est_0), min(rss_0), min(y_est_1), min(rss_1)])
         ymax = max([max(y_est_0), max(rss_0), max(y_est_1), max(rss_1)])

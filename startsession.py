@@ -37,14 +37,24 @@ class TxData(object):
         elif num_tx is 4:
             self.__freqtx = [434.325e6, 434.62e6, 0, 0]
 
-            self.__tx_pos = [[1000, 1400, 0],
-                             [1200, 1400, 0],
-                             [1400, 1400, 0],
-                             [1600, 1400, 0]]
+            self.__tx_pos = [[0, 2000, 0],
+                             [250, 2000, 0],
+                             [500, 2000, 0],
+                             [750, 2000, 0]]
+        elif num_tx is 5:
+            self.__freqtx = [0, 0, 0, 0, 0]
+
+            self.__tx_pos = [[0, 2000, 0],
+                             [250, 2000, 0],
+                             [500, 2000, 0],
+                             [750, 2000, 0],
+                             [1000, 2000, 0]]
 
         else:
             print('Check number of TX in TxData object!')
             exit(1)
+
+        self.__alpha = 0.0 * np.pi
 
     def get_freq_tx(self):
         return self.__freqtx
@@ -52,12 +62,15 @@ class TxData(object):
     def get_tx_pos(self):
         return self.__tx_pos
 
+    def get_alpha(self):
+        return self.__alpha
+
 
 def waypoint_file_generating(filename=None):
-    x0 = [1400, 1100, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
-    xn = [1000, 1100, 0]  # end point of rectangle (opposite corner)??
+    x0 = [250, 700, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
+    xn = [750, 700, 0]  # end point of rectangle (opposite corner)??
 
-    dxdyda = [-20, 0, 0]
+    dxdyda = [20, 0, 0]
 
     if filename is not None:
         wp_filename_rel_path = path.relpath('Waypoints/' + filename + '.txt')
@@ -65,6 +78,20 @@ def waypoint_file_generating(filename=None):
         wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...(waypoint_file_generating)')
 
     rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, show_plot=True)
+
+
+def waypoint_s_path_generating(filename=None):
+    x0 = [250, 1500, 0]  # start point - upper left corner
+    xn = [750, 700, 0]  # end point - lower right corner
+
+    dxdyda = [40, 40, 0]
+
+    if filename is not None:
+        wp_filename_rel_path = path.relpath('Waypoints/' + filename + '.txt')
+    else:
+        wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...(waypoint_file_generating)')
+
+    est_to.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, show_plot=False)
 
 
 def start_field_measurement():
@@ -81,8 +108,10 @@ def simulate_field_measurement(tx_num=2, way_filename=None, meas_filename=None, 
     TX = TxData(num_tx=tx_num)
     tx_pos = TX.get_tx_pos()
     freq_tx = TX.get_freq_tx()
-    MS = est_to.MeasurementSimulation(tx_pos, freq_tx, way_filename, meas_filename, alpha=0)
-    MS.measurement_simulation(cal_param_file=cal_param_file, covariance_of=covariance_of)
+    alpha = TX.get_alpha()
+
+    MS = est_to.MeasurementSimulation(tx_pos, freq_tx, way_filename, meas_filename, alpha=alpha)
+    MS.measurement_simulation(cal_param_file=cal_param_file, covariance_of=covariance_of, description='Test')
     return True
 
 
@@ -149,18 +178,19 @@ if __name__ == '__main__':
     '''
     # waypoint_file_generating()  # if no input is selected file function active
 
-    # start_field_measurement()  # initialize start_RFEar with correct values
+    waypoint_s_path_generating(filename='wp_test')
 
-    # simulate_field_measurement(tx_num=4, way_filename='wp_debug_z', meas_filename='sym_debugging_z_tx_4',
-    #                            cal_param_file='Test_file_4', covariance_of=False)
+    simulate_field_measurement(tx_num=5, way_filename='wp_test', meas_filename='sy_test',
+                               cal_param_file='Test_file_5', covariance_of=False)
+
+    position_estimation(x_start=[250, 1500, 0], filename='sy_test'
+                        , cal_param_file='Test_file_5', sym_meas=True)
+
+    # start_field_measurement()  # initialize start_RFEar with correct values
 
     # lambda_t, gamma_t = analyze_measdata('second_try')  # if no input is selected file function active
 
     # write_cal_param_file(lambda_t, gamma_t, cal_param_file='Test_file')
-        # if no input is selected file function active
-
-    position_estimation(x_start=[1000, 1200, 10], filename='sym_debugging_tx_4'
-                        , cal_param_file='Test_file_4', sym_meas=True)
-        # if no input is selected file function active
+    # if no input is selected file function active
 
     # check_antennas(False)

@@ -78,9 +78,10 @@ class MeasurementSimulation(object):
         self.get_distance(itx, i)
 
         self.__mean[itx] = -20 * np.log10(self.__r_dist) + self.__r_dist * self.__tx_lambda[itx] \
-                + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx])**2) \
-                + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
-                + self.__n_rec * np.log10(np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
+                           + self.__tx_gamma[itx] + np.log10(np.cos(self.__psi_low[itx]) ** 2) \
+                           + self.__n_tx * np.log10(np.cos(self.__theta_cap[itx])) \
+                           + self.__n_rec * np.log10(
+            np.cos(self.__theta_cap[itx] + self.__theta_low[itx]))  # see log rules
 
         return True
 
@@ -183,7 +184,7 @@ class MeasurementSimulation(object):
         self.__var[itx] = r_mat
         return True
 
-    def measurement_simulation(self, cal_param_file=None, covariance_of=False):
+    def measurement_simulation(self, cal_param_file=None, covariance_of=False, description=None):
         """
         simulates a measurement -> writes header like real measurements and in measdata rss values with variance
 
@@ -202,7 +203,10 @@ class MeasurementSimulation(object):
             measdata_filename = hc_tools.save_as_dialog()
         print measdata_filename
 
-        meas_description = hc_tools.write_descrition()
+        if description is None:
+            meas_description = hc_tools.write_descrition()
+        else:
+            meas_description = description
         print meas_description
 
         self.__numtx = len(self.__freqtx)
@@ -240,8 +244,6 @@ class MeasurementSimulation(object):
                     xn = [grid_settings[3], grid_settings[4], grid_settings[5]]
                     grid_dxdyda = [grid_settings[6], grid_settings[7], grid_settings[8]]
                     timemeas = grid_settings[9]
-
-
 
                     data_shape = []
                     for i in range(3):  # range(num_dof)
@@ -285,7 +287,7 @@ class MeasurementSimulation(object):
             measfile.write(str(x0[0]) + ' ' + str(x0[1]) + ' ' + str(x0[2]) + ' ' +
                            str(xn[0]) + ' ' + str(xn[1]) + ' ' + str(xn[2]) + ' ' +
                            str(grid_dxdyda[0]) + ' ' + str(grid_dxdyda[1]) + ' ' + str(grid_dxdyda[2]) + ' ' +
-                           str(timemeas) + ' ' + txdata +
+                           str(timemeas) + ' ' + txdata + str(self.__alpha) +
                            '\n')
             measfile.write('### begin measurement data\n')
             print wp_data_mat.shape[0]
@@ -361,6 +363,7 @@ def get_meas_values(simulate_meas, measdata_filename=None):
 
             if load_grid_settings and not load_measdata:
                 found_grid = True
+                alpha = map(float, line[:-2].split(' '))[-1]
 
             if load_measdata and not load_grid_settings:
                 found_meas = True
@@ -418,7 +421,7 @@ def get_meas_values(simulate_meas, measdata_filename=None):
     # print('plotdata_mat = \n')
     # print plotdata_mat
 
-    return plotdata_mat
+    return plotdata_mat, alpha
 
 
 def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=None):
@@ -477,7 +480,7 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
 
             if load_grid_settings and not load_measdata:
                 found_grid = True
-
+                a = line[:-2].split(' ')
                 grid_settings = map(float, line[:-2].split(' '))
                 x0 = [grid_settings[0], grid_settings[1], grid_settings[2]]
                 xn = [grid_settings[3], grid_settings[4], grid_settings[5]]
@@ -519,23 +522,23 @@ def read_measfile_header(object, analyze_tx=[1, 2, 3, 4, 5, 6], measfile_path=No
                 print('tx_pos = ' + str(txpos_list))
                 print('freqtx = ' + str(freqtx))
 
-                startx = x0[0]
-                endx = xn[0]
-                stepx = data_shape_file[0]
+                # startx = x0[0]
+                # endx = xn[0]
+                # stepx = data_shape_file[0]
+                #
+                # starty = x0[1]
+                # endy = xn[1]
+                # stepy = data_shape_file[1]
+                #
+                # startz = x0[2]
+                # endz = xn[2]
+                # stepz = data_shape_file[2]
 
-                starty = x0[1]
-                endy = xn[1]
-                stepy = data_shape_file[1]
+                # xpos = np.linspace(startx, endx, stepx)
+                # ypos = np.linspace(starty, endy, stepy)
+                # zpos = np.linspace(startz, endz, stepz)
 
-                startz = x0[2]
-                endz = xn[2]
-                stepz = data_shape_file[2]
-
-                xpos = np.linspace(startx, endx, stepx)
-                ypos = np.linspace(starty, endy, stepy)
-                zpos = np.linspace(startz, endz, stepz)
-
-                wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)
+                # wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)
 
             if load_measdata and not load_grid_settings:
                 found_meas = True
@@ -579,19 +582,255 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
 
     return angle_x
 
+
 def get_distance_3d(x_a, h_a, x_b, h_b):
     x_ab = x_a - x_b
     h_ab = h_a - h_b
-    dist = ((x_ab[0][0])**2 + (x_ab[1][0])**2 + h_ab**2)**0.5
+    dist = ((x_ab[0][0]) ** 2 + (x_ab[1][0]) ** 2 + h_ab ** 2) ** 0.5
     return dist
 
 
 def get_distance_2d(x_a, x_b):
     x_ab = x_a - x_b
-    dist = ((x_ab[0])**2 + (x_ab[1])**2)**0.5
+    dist = ((x_ab[0]) ** 2 + (x_ab[1]) ** 2) ** 0.5
     return dist
 
 
 def get_distance_1d(x_a, x_b):
     dist = abs(x_a - x_b)
     return dist
+
+
+def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 50], timemeas=12.0,
+                 show_plot=False):
+    """
+    :param show_plot:
+    :param grid_dxdyda:
+    :param wp_filename:
+    :param x0: [x0,y0] - start position of the grid
+    :param xn: [xn,yn] - end position of the grid
+    :param timemeas: - time [s] to wait at each position for measurements
+    :return: wp_mat [x, y, t]
+    """
+
+    '''first row'''
+
+    try:
+        stepsi = (xn[0] - x0[0]) / grid_dxdyda[0] + 1
+    except ZeroDivisionError:
+        stepsi = 1
+
+    startx = x0[0]
+    endx = xn[0]
+    stepx = stepsi
+
+    starty = x0[1]
+    endy = x0[1]
+    stepy = 1
+
+    startz = x0[2]
+    endz = xn[2]
+    stepz = 1
+
+    # create vectors of rectangle sites
+    xpos = np.linspace(startx, endx, stepx)
+    ypos = np.linspace(starty, endy, stepy)
+    zpos = np.linspace(startz, endz, stepz)
+
+    # create rectangle from vectors
+    wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
+    wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
+    wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
+    wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
+    wp_time = np.ones((len(xpos) * len(ypos) * len(zpos), 1)) * timemeas
+
+    wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
+    wp_mat = np.append(wp_mat, wp_time, axis=1)
+
+    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    with open(wp_filename, 'w') as wpfile:
+        wpfile.write('Way point list \n')
+        wpfile.write('### begin grid settings\n')
+        wpfile.write(str(x0[0]) + ' ' + str(x0[1]) + ' ' + str(x0[2]) + ' ' +
+                     str(xn[0]) + ' ' + str(xn[1]) + ' ' + str(xn[2]) + ' ' +
+                     str(grid_dxdyda[0]) + ' ' + str(grid_dxdyda[1]) + ' ' + str(grid_dxdyda[2]) + ' ' +
+                     str(timemeas) +
+                     '\n')
+
+        wpfile.write('### begin wp_list\n')
+        for i in range(wp_mat.shape[0]):
+            wpfile.write(
+                str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' ' + str(
+                    wp_mat[i, 3]) + '\n')
+        wpfile.close()
+
+    '''first collumn'''
+    try:
+        stepsi = ((x0[1] - xn[1]) / 2 ) / grid_dxdyda[1] + 1
+    except ZeroDivisionError:
+        stepsi = 1
+
+    startx = xn[0]
+    endx = xn[0]
+    stepx = 1
+
+    starty = x0[1]
+    endy = x0[1] - (x0[1] - xn[1]) / 2
+    stepy = stepsi
+
+    startz = x0[2]
+    endz = xn[2]
+    stepz = 1
+
+    # create vectors of rectangle sites
+    xpos = np.linspace(startx, endx, stepx)
+    ypos = np.linspace(starty, endy, stepy)
+    zpos = np.linspace(startz, endz, stepz)
+
+    # create rectangle from vectors
+    wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
+    wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
+    wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
+    wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
+    wp_time = np.ones((len(xpos) * len(ypos) * len(zpos), 1)) * timemeas
+
+    wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
+    wp_mat = np.append(wp_mat, wp_time, axis=1)
+
+    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    with open(wp_filename, 'a') as wpfile:
+        for i in range(wp_mat.shape[0]):
+            wpfile.write(
+                str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' ' + str(
+                    wp_mat[i, 3]) + '\n')
+        wpfile.close()
+
+    '''second row'''
+    try:
+        stepsi = (x0[0] - xn[0]) / -grid_dxdyda[0] + 1
+    except ZeroDivisionError:
+        stepsi = 1
+
+    startx = xn[0]
+    endx = x0[0]
+    stepx = stepsi
+
+    starty = x0[1] - (x0[1] - xn[1]) / 2
+    endy = x0[1] - (x0[1] - xn[1]) / 2
+    stepy = 1
+
+    startz = x0[2]
+    endz = xn[2]
+    stepz = 1
+
+    # create vectors of rectangle sites
+    xpos = np.linspace(startx, endx, stepx)
+    ypos = np.linspace(starty, endy, stepy)
+    zpos = np.linspace(startz, endz, stepz)
+
+    # create rectangle from vectors
+    wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
+    wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
+    wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
+    wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
+    wp_time = np.ones((len(xpos) * len(ypos) * len(zpos), 1)) * timemeas
+
+    wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
+    wp_mat = np.append(wp_mat, wp_time, axis=1)
+
+    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    with open(wp_filename, 'a') as wpfile:
+        for i in range(wp_mat.shape[0]):
+            wpfile.write(
+                str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' ' + str(
+                    wp_mat[i, 3]) + '\n')
+        wpfile.close()
+
+    '''second coloumn'''
+    try:
+        stepsi = ((x0[1] - xn[1]) / 2) / grid_dxdyda[1] + 1
+    except ZeroDivisionError:
+        stepsi = 1
+
+    startx = x0[0]
+    endx = x0[0]
+    stepx = 1
+
+    starty = x0[1] - (x0[1] - xn[1]) / 2
+    endy = xn[1]
+    stepy = stepsi
+
+    startz = x0[2]
+    endz = xn[2]
+    stepz = 1
+
+    # create vectors of rectangle sites
+    xpos = np.linspace(startx, endx, stepx)
+    ypos = np.linspace(starty, endy, stepy)
+    zpos = np.linspace(startz, endz, stepz)
+
+    # create rectangle from vectors
+    wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
+    wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
+    wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
+    wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
+    wp_time = np.ones((len(xpos) * len(ypos) * len(zpos), 1)) * timemeas
+
+    wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
+    wp_mat = np.append(wp_mat, wp_time, axis=1)
+
+    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    with open(wp_filename, 'a') as wpfile:
+        for i in range(wp_mat.shape[0]):
+            wpfile.write(
+                str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' ' + str(
+                    wp_mat[i, 3]) + '\n')
+        wpfile.close()
+
+    '''second row'''
+    try:
+        stepsi = (xn[0] - x0[0]) / grid_dxdyda[0] + 1
+    except ZeroDivisionError:
+        stepsi = 1
+
+    startx = x0[0]
+    endx = xn[0]
+    stepx = stepsi
+
+    starty = xn[1]
+    endy = xn[1]
+    stepy = 1
+
+    startz = x0[2]
+    endz = xn[2]
+    stepz = 1
+
+    # create vectors of rectangle sites
+    xpos = np.linspace(startx, endx, stepx)
+    ypos = np.linspace(starty, endy, stepy)
+    zpos = np.linspace(startz, endz, stepz)
+
+    # create rectangle from vectors
+    wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
+    wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
+    wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
+    wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
+    wp_time = np.ones((len(xpos) * len(ypos) * len(zpos), 1)) * timemeas
+
+    wp_mat = np.append(wp_vecx, np.append(wp_vecy, wp_vecz, axis=1), axis=1)
+    wp_mat = np.append(wp_mat, wp_time, axis=1)
+
+    # wp_filename = hc_tools.save_as_dialog('Save way point list as...')
+    with open(wp_filename, 'a') as wpfile:
+        for i in range(wp_mat.shape[0]):
+            wpfile.write(
+                str(i) + ' ' + str(wp_mat[i, 0]) + ' ' + str(wp_mat[i, 1]) + ' ' + str(wp_mat[i, 2]) + ' ' + str(
+                    wp_mat[i, 3]) + '\n')
+        wpfile.close()
+
+    return wp_filename  # file output [line#, x, y, a, time]
