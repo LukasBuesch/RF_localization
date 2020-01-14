@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 class Extended_Kalman_Filter(object):
 
     def __init__(self, alpha, x_start=None, sig_x1=500, sig_x2=500, sig_z=500, sig_w1=500, sig_w2=500, sig_wz=500,
-                 z_depth_sigma=1, n_tx=0, n_rx=100, inclined_plane=False):
+                 z_depth_sigma=10, n_tx=100, n_rx=100, inclined_plane=False):
 
         """
         initialize EKF class
@@ -499,6 +499,7 @@ class Extended_Kalman_Filter(object):
 
         '''iterate through all tx-rss-values and estimate xy position in TA coordinates'''
         for itx in range(self.__tx_num):
+            a = self.__x_est
             # estimate measurement from x_est
             self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
             y_tild = self.__rss_meas[itx] - self.__y_est[itx]
@@ -523,9 +524,12 @@ class Extended_Kalman_Filter(object):
 
             # print('update_' + str(itx) + ' = ' + str(self.__x_est))
             self.__x_est = self.__x_est + k_mat * y_tild  # = x_est[:2] + k * y_tild
-            self.__p_mat[:2, :2] = (self.__i_mat[:2, :2] - np.dot(k_mat.T, self.__h_rss_jac[itx, :])) \
-                                   * self.__p_mat[:2, :2]
+            self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_rss_jac[itx, :])) \
+                                   * self.__p_mat
             # = (I-KH)*P
+
+            # if (itx is 3) or (itx is 4):
+            #     self.__x_est = a
             self.__x_est[2] = z_est  # hold z_est constant for all iterations
 
         self.__x_est[2] = z_est
@@ -576,6 +580,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     EKF = Extended_Kalman_Filter(alpha=alpha, x_start=x_start)  # initialize object ->check initial values in __init__ function
     est_to.read_measfile_header(object=EKF, analyze_tx=[1, 2],
                                 measfile_path=measfile_rel_path)  # write params from header in object
+    # EKF.set_num_meas(100)
     EKF.set_cal_params(cal_param_file=cal_param_file)
     EKF.set_tx_param()
 
@@ -588,6 +593,9 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     x_est_list.append(x_start)
     y_est_list = []
     rss_meas = []
+    p_mat_list = []
+    psi_list = []
+    theta_cap_list = []
 
     for i in range(num_meas):
         print('\n \n \nPassage number:' + str(i + 1) + '\n')
@@ -610,9 +618,20 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         x_est_list.append([x, y, z])  # for plotting purposes
         # x_est_list.append(EKF.get_x_est())
 
+
+        '''make list for plotting'''
+        sigma_x = EKF.get_p_mat()[0][0]
+        sigma_y = EKF.get_p_mat()[1][1]
+        sigma_z = EKF.get_p_mat()[2][2]
+
+        p_mat_list.append([sigma_x, sigma_y, sigma_z])  # for plotting purposes
+        # x_est_list.append(EKF.get_x_est())
+
         y_tild_list = EKF.get_y_tild()
 
         y_est_list.append(EKF.get_y_est().tolist())
+
+        theta_cap_list.append(EKF.get_theta_cap())
 
         meas = meas_data[i][:]
         rss_meas.append(meas[3:3 + EKF.get_tx_num()].tolist())
@@ -827,6 +846,20 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         plt.plot(range(0, num_meas), x_n_y, c='m')
         plt.plot(x_est_y, c='y')
 
+        p_est_x = [None] * len(p_mat_list)
+        p_est_y = [None] * len(p_mat_list)
+        p_est_z = [None] * len(p_mat_list)
+
+        for i in range(0, len(p_mat_list)):
+            p_est_x[i] = p_mat_list[i][0]
+            p_est_y[i] = p_mat_list[i][1]
+            p_est_z[i] = p_mat_list[i][2]
+
+        x_plot = np.asarray(range(0, num_meas))
+        plt.fill_between(x_plot, np.asarray(x_est_x[:-1])+np.asarray(p_est_x)*0.1,np.asarray(x_est_x[:-1])-np.asarray(p_est_x)*0.1, alpha=0.5)
+        plt.fill_between(x_plot, np.asarray(x_est_y[:-1]) + np.asarray(p_est_y) * 0.1,np.asarray(x_est_y[:-1]) - np.asarray(p_est_y) * 0.1, alpha=0.5)
+
+
         plt.xlabel('Messungsnummer')
         plt.ylabel('Koordinate [mm]')
         plt.legend(['x_true', 'x_est', 'y_true', 'y_est'], loc=1)
@@ -836,8 +869,9 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
 
         plt.ylim(ymin - 100, ymax + 100)
         plt.xticks(np.arange(0, len(x_n_x), step=5))
+        plt.grid()
 
-    plot_z = True
+    plot_z = False
     if plot_z:
         # plt.figure(figsize=(12, 12))
         plt.subplot(223)
@@ -854,6 +888,10 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
 
         plt.ylim(ymin - 100, ymax + 100)
         plt.xticks(np.arange(0, len(x_n_x), step=5))
+        plt.grid()
+        plt.annotate('Durchschnittlicher Fehler: ' + str(np.round(x_est_fehler_ges_mean[0], 0)) + ' +- '
+                     + str(np.round(x_est_fehler_ges_sdt))
+                     + 'mm', xy=(xmin + 50, ymax - 350), xytext=(xmin + 50, ymax - 350))
 
     plot_meas_sym = True
     if plot_meas_sym:
@@ -863,20 +901,43 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         # make list for every Tx
         y_est_0 = []
         y_est_1 = []
+        y_est_2 = []
+        y_est_3 = []
+        y_est_4 = []
+
         rss_0 = []
         rss_1 = []
+        rss_2 = []
+        rss_3 = []
+        rss_4 = []
+
+
+
         for i in range(EKF.get_num_meas()):
             y_est_0.append(y_est_list[i][0])
             y_est_1.append(y_est_list[i][1])
+            y_est_2.append(y_est_list[i][2])
+            y_est_3.append(y_est_list[i][3])
+            y_est_4.append(y_est_list[i][4])
+
 
             rss_0.append(rss_meas[i][0])
             rss_1.append(rss_meas[i][1])
+            rss_2.append(rss_meas[i][2])
+            rss_3.append(rss_meas[i][3])
+            rss_4.append(rss_meas[i][4])
 
-        plt.plot(range(1, (num_meas + 1)), y_est_0, '.-', c='r')
-        plt.plot(range(1, (num_meas + 1)), y_est_1, '.-', c='y')
+
+        plt.plot(range(1, (num_meas + 1)), y_est_0, '.--', c='r')
+        plt.plot(range(1, (num_meas + 1)), y_est_1, '.--', c='y')
+        plt.plot(range(1, (num_meas + 1)), y_est_2, '.--', c='m')
+
 
         plt.plot(range(1, (num_meas + 1)), rss_0, '.-', c='c')
         plt.plot(range(1, (num_meas + 1)), rss_1, '.-', c='g')
+        plt.plot(range(1, (num_meas + 1)), rss_2, '.-', c='b')
+
+
 
         ymin = min([min(y_est_0), min(rss_0), min(y_est_1), min(rss_1)])
         ymax = max([max(y_est_0), max(rss_0), max(y_est_1), max(rss_1)])
@@ -884,10 +945,32 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         # plt.axis([xmin, xmax, ymin, ymax])
         plt.xlabel('Messungsnummer')
         plt.ylabel('RSS')
-        plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_true_T1', 'RSS_true_T2'], loc=1)
+        plt.legend(['RSS_est_T1', 'RSS_est_T2','RSS_est_T3', 'RSS_true_T1', 'RSS_true_T2','RSS_true_T3'], loc=1)
 
         plt.ylim(ymin - 2, ymax + 2)
         plt.xticks(np.arange(0, len(y_est_0) + 1, step=5))
+        plt.grid()
+
+        plt.subplot(223)
+
+        ymin = min([min(y_est_0), min(rss_0), min(y_est_1), min(rss_1)])
+        ymax = max([max(y_est_0), max(rss_0), max(y_est_1), max(rss_1)])
+
+        # plt.axis([xmin, xmax, ymin, ymax])
+        plt.xlabel('Messungsnummer')
+        plt.ylabel('RSS')
+        plt.plot(range(1, (num_meas + 1)), y_est_3, '.--', c='y')
+        plt.plot(range(1, (num_meas + 1)), y_est_4, '.--', c='b')
+
+        plt.plot(range(1, (num_meas + 1)), rss_3, '.-', c='g')
+        plt.plot(range(1, (num_meas + 1)), rss_4, '.-', c='c')
+        plt.legend(['RSS_est_T4', 'RSS_est_T5', 'RSS_true_T4', 'RSS_true_T5'], loc=1)
+
+
+        plt.ylim(ymin - 2, ymax + 2)
+        plt.xticks(np.arange(0, len(y_est_0) + 1, step=5))
+        plt.grid()
+
 
     '''Fehlerhistogramm'''
 
@@ -902,5 +985,10 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None,
                         wspace=0.4, hspace=None)
     plt.show()
+
+    fig_1 = plt.figure(1, figsize=(25, 12))
+
+    '''Theta'''
+    fig_1.add_subplot(131)
 
     return True
