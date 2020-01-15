@@ -14,13 +14,14 @@ independent methods related to the gantry
 """
 
 
-def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 0], timemeas=12.0,
+def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50, 50, 50], timemeas=12.0,
                  show_plot=False):
     """
+    :param show_plot:
+    :param grid_dxdyda:
     :param wp_filename:
     :param x0: [x0,y0] - start position of the grid
     :param xn: [xn,yn] - end position of the grid
-    :param steps: [numX, numY] - step size
     :param timemeas: - time [s] to wait at each position for measurements
     :return: wp_mat [x, y, t]
     """
@@ -46,11 +47,14 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
     endz = xn[2]
     stepz = steps[2]
 
+    # create vectors of rectangle sites
     xpos = np.linspace(startx, endx, stepx)
     ypos = np.linspace(starty, endy, stepy)
     zpos = np.linspace(startz, endz, stepz)
 
+    # create rectangle from vectors
     wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
+    # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
     wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))
     wp_vecy = np.reshape(wp_maty, (len(ypos) * len(zpos) * len(xpos), 1))
     wp_vecz = np.reshape(wp_matz, (len(zpos) * len(xpos) * len(ypos), 1))
@@ -81,6 +85,7 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(wp_mat[:, 0], wp_mat[:, 1], wp_mat[:, 2], '.-')
         # ax.show()
+        plt.show()
     print('Way point generator terminated!')
     return wp_filename  # file output [line#, x, y, a, time]
 
@@ -165,8 +170,7 @@ def get_angle_v_on_plane(v_x, v_1main, v_2):
     return angle_x
 
 
-def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc,
-               h_mauv_anglecalc):  # TODO: check up this function
+def get_angles(x_current_anglecalc, tx_pos_anglecalc, h_tx_anglecalc, z_mauv_anglecalc, h_mauv_anglecalc):
     dh_anglecalc = h_mauv_anglecalc - h_tx_anglecalc
     r_anglecalc = x_current_anglecalc - tx_pos_anglecalc
     r_abs_anglecalc = np.linalg.norm(r_anglecalc)
@@ -373,31 +377,41 @@ def analyze_measdata_from_file(model_type='log', analyze_tx=[1, 2, 3, 4, 5, 6], 
         Model fit
         """
         if model_type == 'log':
-            '''
+
+            # correct version according to BA (Lukas Buesch)
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm, n_t_rsm, n_r_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, psi_low_rsm, theta_cap_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(np.cos(abs(psi_low_rsm))) + n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm))) + n_r_rsm * np.log10(abs(np.cos(theta_cap_rsm + theta_low_rsm)))  # rss in db
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm \
+                       + np.log10(np.cos(abs(psi_low_rsm)) ** 2) \
+                       + n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm))) \
+                       + n_r_rsm * np.log10(abs(np.cos(theta_cap_rsm + theta_low_rsm)))  # rss in db
 
+            # other versions
+            '''
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm, n_r_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, psi_low_rsm, theta_cap_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(np.cos(abs(psi_low_rsm))) + n_r_rsm * np.log10(abs(np.cos(theta_low_rsm)))  # rss in db
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm \
+                       + np.log10(np.cos(abs(psi_low_rsm)) ** 2) \
+                       + n_r_rsm * np.log10(abs(np.cos(theta_low_rsm)))  # rss in db
+
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm, n_t_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
-                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + 2 * n_t_rsm * np.log10(abs(np.cos(theta_cap_rsm)))  # rss in db
-            '''
+                return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + 2 * n_t_rsm * np.log10(
+                    abs(np.cos(theta_cap_rsm)))  # rss in db
 
             def rsm_model(rsm_params, lambda_rsm, gamma_rsm):
                 """Range Sensor Model (RSM) structure."""
                 dist_rsm, theta_cap_rsm, psi_low_rsm, theta_low_rsm = rsm_params
                 return -20 * np.log10(dist_rsm) + lambda_rsm * dist_rsm + gamma_rsm + np.log10(
-                    3.83135740649 ** 2)  # rss in db
-        elif model_type == 'lin':  # todo: OLD: consider linearized Angles when use is desired. decide to not bother linearizing and throw this out of the code.
-            def rsm_model(dist_rsm, lambda_rsm, gamma_rsm):
-                """Range Sensor Model (RSM) structure."""
-                return lambda_rsm * dist_rsm + gamma_rsm  # rss in db
+                    3.83135740649 ** 2)  # rss in db  
+            '''
+
+        elif model_type == 'lin':
+            print('model_type == lin is not supported!')
+            return (2)
 
         rdist = []
 
