@@ -31,16 +31,20 @@ class TxData(object):
         elif num_tx is 2:
             self.__freqtx = [434.325e6, 434.62e6]
 
-            self.__tx_pos = [[1120, 1374, 0],
-                             [1370, 1374, 0]]
+            self.__tx_pos = [[0, 2000, 0],
+                             [1000, 2000, 0]]
 
         elif num_tx is 4:
             self.__freqtx = [434.325e6, 434.62e6, 0, 0]
 
-            self.__tx_pos = [[0, 2000, 0],
-                             [250, 2000, 0],
-                             [500, 2000, 0],
-                             [750, 2000, 0]]
+            # self.__tx_pos = [[0, 2000, 0],
+            #                  [250, 2000, 0],
+            #                  [500, 2000, 0],
+            #                  [750, 2000, 0]]
+            self.__tx_pos = [[200, 200, 0],
+                             [200, 2000, 0],
+                             [800, 200, 0],
+                             [800, 2000, 0]]
         elif num_tx is 5:
             self.__freqtx = [0, 0, 0, 0, 0]
 
@@ -67,17 +71,17 @@ class TxData(object):
 
 
 def waypoint_file_generating(filename=None):
-    x0 = [250, 700, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
-    xn = [750, 700, 0]  # end point of rectangle (opposite corner)??
+    x0 = [750, 1500, 0]  # start point of rectangle (corner with the smallest coordinate amounts)??
+    xn = [250, 1500, 0]  # end point of rectangle (opposite corner)??
 
-    dxdyda = [20, 0, 0]
+    dxdyda = [-40, 0, 0]
 
     if filename is not None:
         wp_filename_rel_path = path.relpath('Waypoints/' + filename + '.txt')
     else:
         wp_filename_rel_path = hc_tools.save_as_dialog('Save way point list as...(waypoint_file_generating)')
 
-    rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, show_plot=True)
+    rf_tools.wp_generator(wp_filename_rel_path, x0, xn, dxdyda, 2, show_plot=False)
 
 
 def waypoint_s_path_generating(filename=None):
@@ -176,15 +180,15 @@ if __name__ == '__main__':
     '''
     start all functions from here
     '''
-    # waypoint_file_generating()  # if no input is selected file function active
+    # waypoint_file_generating(filename='wp_test')  # if no input is selected file function active
 
-    waypoint_s_path_generating(filename='wp_test')
+    # waypoint_s_path_generating(filename='wp_test')
 
-    simulate_field_measurement(tx_num=5, way_filename='wp_test', meas_filename='sy_test',
-                               cal_param_file='Test_file_5', covariance_of=False)
+    simulate_field_measurement(tx_num=2, way_filename='wp_test', meas_filename='sy_test',
+                               cal_param_file='Test_file_2', covariance_of=False)
 
-    position_estimation(x_start=[250, 1500, 0], filename='sy_test'
-                        , cal_param_file='Test_file_5', sym_meas=True)
+    position_estimation(x_start=[750, 700, 0], filename='sy_test'
+                        , cal_param_file='Test_file_2', sym_meas=True)
 
     # start_field_measurement()  # initialize start_RFEar with correct values
 

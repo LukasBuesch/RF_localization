@@ -52,7 +52,7 @@ def wp_generator(wp_filename, x0=[0, 0, 0], xn=[1200, 1200, 0], grid_dxdyda=[50,
     ypos = np.linspace(starty, endy, stepy)
     zpos = np.linspace(startz, endz, stepz)
 
-    # create rectangle from vectors  # TODO: find the error!
+    # create rectangle from vectors
     wp_maty, wp_matz, wp_matx = np.meshgrid(ypos, zpos, xpos)  # put least moving axis second, then first, then last
     # np.meshgrid() creates a rectangular grid out of an array of x values and an array of y values
     wp_vecx = np.reshape(wp_matx, (len(xpos) * len(ypos) * len(zpos), 1))

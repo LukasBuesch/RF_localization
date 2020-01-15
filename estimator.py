@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, alpha, x_start=None, sig_x1=500, sig_x2=500, sig_z=500, sig_w1=500, sig_w2=500, sig_wz=500,
+    def __init__(self, alpha, x_start=None, sig_x1=50, sig_x2=50, sig_z=50, sig_w1=50, sig_w2=50, sig_wz=50,
                  z_depth_sigma=10, n_tx=100, n_rx=100, inclined_plane=False):
 
         """
@@ -286,6 +286,7 @@ class Extended_Kalman_Filter(object):
     def h_rss(self, itx, x=None):
         if x is None:
             x = self.__x_est
+            # x = self.__pos_real
         tx_pos = self.__tx_param[itx][0]  # position of the transceiver
 
         a = x[2]
@@ -353,7 +354,7 @@ class Extended_Kalman_Filter(object):
 
         :return:
         """
-        z_est_sr = - np.sin(self.__alpha) * self.__x_est[0] + np.cos(self.__alpha) * self.__x_est[2]
+        z_est_sr = - np.sin(self.__alpha) * self.__pos_real[0] + np.cos(self.__alpha) * self.__pos_real[2]
 
         return z_est_sr
 
@@ -498,11 +499,16 @@ class Extended_Kalman_Filter(object):
         z_est = self.__x_est[2]  # put z_est through RF Update
 
         '''iterate through all tx-rss-values and estimate xy position in TA coordinates'''
+        print("x_real = " + str(self.__pos_real.round(2)))
+
+        k_mat = np.zeros((3, self.__tx_num))
+        y_tild = np.zeros((1, self.__tx_num))
+
         for itx in range(self.__tx_num):
             a = self.__x_est
             # estimate measurement from x_est
             self.__y_est[itx], self.__r_dist[itx] = self.h_rss(itx)
-            y_tild = self.__rss_meas[itx] - self.__y_est[itx]
+            y_tild[:, itx] = self.__rss_meas[itx] - self.__y_est[itx]
 
             self.__y_tild = y_tild  # for plotting purposes
 
@@ -519,18 +525,27 @@ class Extended_Kalman_Filter(object):
 
             s_mat = np.dot(self.__h_rss_jac[itx, :], np.dot(self.__p_mat, self.__h_rss_jac[itx, :].T)) + r_mat
             # = H^t * P * H + R
-            k_mat = np.dot(self.__p_mat, np.divide(self.__h_rss_jac[itx, :], s_mat).reshape(3, 1))
+            k_mat[:, itx] = np.dot(self.__p_mat, np.divide(self.__h_rss_jac[itx, :], s_mat))
             # 1/s_scal since s_mat is dim = 1x1, need to reshape result of division by scalar
 
             # print('update_' + str(itx) + ' = ' + str(self.__x_est))
-            self.__x_est = self.__x_est + k_mat * y_tild  # = x_est[:2] + k * y_tild
-            self.__p_mat = (self.__i_mat - np.dot(k_mat.T, self.__h_rss_jac[itx, :])) \
-                                   * self.__p_mat
-            # = (I-KH)*P
+        for itx in range(self.__tx_num):
+            self.__x_est = self.__x_est + k_mat[:, itx].reshape((3, 1)) * y_tild[:, itx]  # = x_est[:2] + k * y_tild
 
-            # if (itx is 3) or (itx is 4):
-            #     self.__x_est = a
-            self.__x_est[2] = z_est  # hold z_est constant for all iterations
+
+            # # if (itx is 3) or (itx is 4):
+            # #     self.__x_est = a
+            # print("itx " + str(itx) + " x_est = " + str(self.__x_est.round(2).T) + " r_dist = " + str(
+            #     self.__r_dist[itx].round(2))
+            #       + " y_tilde = " + str(self.__y_tild.round(2)) + " k =" + str(k_mat[:, itx].round(2).T) + " h_jac= " + str(
+            #             self.__h_rss_jac[itx, :].round(3)))
+
+        self.__x_est[2] = z_est  # hold z_est constant for all iterations
+
+        for itx in range(self.__tx_num):
+            self.__p_mat = (self.__i_mat - np.dot(k_mat[:, itx].T, self.__h_rss_jac[itx, :])) \
+                           * self.__p_mat
+            # = (I-KH)*P
 
         self.__x_est[2] = z_est
 
@@ -577,10 +592,11 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     # print('meas_data:\n' + str(meas_data))
 
     '''initialize values for EKF'''
-    EKF = Extended_Kalman_Filter(alpha=alpha, x_start=x_start)  # initialize object ->check initial values in __init__ function
+    EKF = Extended_Kalman_Filter(alpha=alpha,
+                                 x_start=x_start)  # initialize object ->check initial values in __init__ function
     est_to.read_measfile_header(object=EKF, analyze_tx=[1, 2],
                                 measfile_path=measfile_rel_path)  # write params from header in object
-    # EKF.set_num_meas(100)
+    # EKF.set_num_meas(10)
     EKF.set_cal_params(cal_param_file=cal_param_file)
     EKF.set_tx_param()
 
@@ -598,8 +614,8 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
     theta_cap_list = []
 
     for i in range(num_meas):
-        print('\n \n \nPassage number:' + str(i + 1) + '\n')
-        print('meas_data num :' + str(i) + str(meas_data[i][:]) + '\n')
+        print('Passage number:' + str(i + 1) + '\n')
+        # print('meas_data num :' + str(i) + str(meas_data[i][:]) + '\n')
 
         # setting depth value from wp position to simulate depth sensor
         EKF.set_pos_real(meas_data[i][0:3])
@@ -607,8 +623,8 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
 
         EKF.ekf_update(meas_data[i][:])
 
-        print('x_est = ')
-        print(str(EKF.get_x_est()) + '\n')
+        # print('x_est = ')
+        # print(str(EKF.get_x_est()) + '\n')
 
         '''make list for plotting'''
         x = EKF.get_x_est()[0][0]
@@ -617,7 +633,6 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
 
         x_est_list.append([x, y, z])  # for plotting purposes
         # x_est_list.append(EKF.get_x_est())
-
 
         '''make list for plotting'''
         sigma_x = EKF.get_p_mat()[0][0]
@@ -850,15 +865,17 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         p_est_y = [None] * len(p_mat_list)
         p_est_z = [None] * len(p_mat_list)
 
-        for i in range(0, len(p_mat_list)):
-            p_est_x[i] = p_mat_list[i][0]
-            p_est_y[i] = p_mat_list[i][1]
-            p_est_z[i] = p_mat_list[i][2]
-
-        x_plot = np.asarray(range(0, num_meas))
-        plt.fill_between(x_plot, np.asarray(x_est_x[:-1])+np.asarray(p_est_x)*0.1,np.asarray(x_est_x[:-1])-np.asarray(p_est_x)*0.1, alpha=0.5)
-        plt.fill_between(x_plot, np.asarray(x_est_y[:-1]) + np.asarray(p_est_y) * 0.1,np.asarray(x_est_y[:-1]) - np.asarray(p_est_y) * 0.1, alpha=0.5)
-
+        #plot variance next to coordinate
+        # for i in range(0, len(p_mat_list)):
+        #     p_est_x[i] = p_mat_list[i][0]
+        #     p_est_y[i] = p_mat_list[i][1]
+        #     p_est_z[i] = p_mat_list[i][2]
+        #
+        # x_plot = np.asarray(range(0, num_meas))
+        # plt.fill_between(x_plot, np.asarray(x_est_x[:-1]) + np.asarray(p_est_x) * 0.1,
+        #                  np.asarray(x_est_x[:-1]) - np.asarray(p_est_x) * 0.1, alpha=0.5)
+        # plt.fill_between(x_plot, np.asarray(x_est_y[:-1]) + np.asarray(p_est_y) * 0.1,
+        #                  np.asarray(x_est_y[:-1]) - np.asarray(p_est_y) * 0.1, alpha=0.5)
 
         plt.xlabel('Messungsnummer')
         plt.ylabel('Koordinate [mm]')
@@ -911,33 +928,26 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         rss_3 = []
         rss_4 = []
 
-
-
         for i in range(EKF.get_num_meas()):
             y_est_0.append(y_est_list[i][0])
             y_est_1.append(y_est_list[i][1])
-            y_est_2.append(y_est_list[i][2])
-            y_est_3.append(y_est_list[i][3])
-            y_est_4.append(y_est_list[i][4])
-
+            # y_est_2.append(y_est_list[i][2])
+            # y_est_3.append(y_est_list[i][3])
+            # y_est_4.append(y_est_list[i][4])
 
             rss_0.append(rss_meas[i][0])
             rss_1.append(rss_meas[i][1])
-            rss_2.append(rss_meas[i][2])
-            rss_3.append(rss_meas[i][3])
-            rss_4.append(rss_meas[i][4])
-
+            # rss_2.append(rss_meas[i][2])
+            # rss_3.append(rss_meas[i][3])
+            # rss_4.append(rss_meas[i][4])
 
         plt.plot(range(1, (num_meas + 1)), y_est_0, '.--', c='r')
         plt.plot(range(1, (num_meas + 1)), y_est_1, '.--', c='y')
-        plt.plot(range(1, (num_meas + 1)), y_est_2, '.--', c='m')
-
+        # plt.plot(range(1, (num_meas + 1)), y_est_2, '.--', c='m')
 
         plt.plot(range(1, (num_meas + 1)), rss_0, '.-', c='c')
         plt.plot(range(1, (num_meas + 1)), rss_1, '.-', c='g')
-        plt.plot(range(1, (num_meas + 1)), rss_2, '.-', c='b')
-
-
+        # plt.plot(range(1, (num_meas + 1)), rss_2, '.-', c='b')
 
         ymin = min([min(y_est_0), min(rss_0), min(y_est_1), min(rss_1)])
         ymax = max([max(y_est_0), max(rss_0), max(y_est_1), max(rss_1)])
@@ -945,7 +955,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         # plt.axis([xmin, xmax, ymin, ymax])
         plt.xlabel('Messungsnummer')
         plt.ylabel('RSS')
-        plt.legend(['RSS_est_T1', 'RSS_est_T2','RSS_est_T3', 'RSS_true_T1', 'RSS_true_T2','RSS_true_T3'], loc=1)
+        plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_est_T3', 'RSS_true_T1', 'RSS_true_T2', 'RSS_true_T3'], loc=1)
 
         plt.ylim(ymin - 2, ymax + 2)
         plt.xticks(np.arange(0, len(y_est_0) + 1, step=5))
@@ -959,18 +969,16 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         # plt.axis([xmin, xmax, ymin, ymax])
         plt.xlabel('Messungsnummer')
         plt.ylabel('RSS')
-        plt.plot(range(1, (num_meas + 1)), y_est_3, '.--', c='y')
-        plt.plot(range(1, (num_meas + 1)), y_est_4, '.--', c='b')
-
-        plt.plot(range(1, (num_meas + 1)), rss_3, '.-', c='g')
-        plt.plot(range(1, (num_meas + 1)), rss_4, '.-', c='c')
+        # plt.plot(range(1, (num_meas + 1)), y_est_3, '.--', c='y')
+        # plt.plot(range(1, (num_meas + 1)), y_est_4, '.--', c='b')
+        #
+        # plt.plot(range(1, (num_meas + 1)), rss_3, '.-', c='g')
+        # plt.plot(range(1, (num_meas + 1)), rss_4, '.-', c='c')
         plt.legend(['RSS_est_T4', 'RSS_est_T5', 'RSS_true_T4', 'RSS_true_T5'], loc=1)
-
 
         plt.ylim(ymin - 2, ymax + 2)
         plt.xticks(np.arange(0, len(y_est_0) + 1, step=5))
         plt.grid()
-
 
     '''Fehlerhistogramm'''
 
