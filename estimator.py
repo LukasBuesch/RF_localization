@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 class Extended_Kalman_Filter(object):
 
-    def __init__(self, alpha, x_start=None, sig_x1=50, sig_x2=50, sig_z=50, sig_w1=50, sig_w2=50, sig_wz=50,
-                 z_depth_sigma=10, n_tx=100, n_rx=100, inclined_plane=False):
+    def __init__(self, alpha, x_start=None, sig_x1=50, sig_x2=50, sig_z=50, sig_w1=600, sig_w2=600, sig_wz=600,
+                 z_depth_sigma=10, n_tx=3, n_rx=3, inclined_plane=False):
 
         """
         initialize EKF class
@@ -354,7 +354,7 @@ class Extended_Kalman_Filter(object):
 
         :return:
         """
-        z_est_sr = - np.sin(self.__alpha) * self.__pos_real[0] + np.cos(self.__alpha) * self.__pos_real[2]
+        z_est_sr = - np.sin(self.__alpha) * self.__pos_real[0] + np.cos(self.__alpha) * self.__x_est[2]
 
         return z_est_sr
 
@@ -446,9 +446,9 @@ class Extended_Kalman_Filter(object):
 
         else:
             # parameter for alpha have to be tuned in experiments
-            alpha_1 = 30
-            alpha_2 = 70
-            alpha_3 = 0.5
+            alpha_1 = 50
+            alpha_2 = 100
+            alpha_3 = 0
             r_sig = np.exp(-(1.0 / alpha_1) * (rss_noise_model + alpha_2)) + alpha_3
 
             # r_sig = 0.3  # FIXME: testing!!
@@ -540,14 +540,14 @@ class Extended_Kalman_Filter(object):
             #       + " y_tilde = " + str(self.__y_tild.round(2)) + " k =" + str(k_mat[:, itx].round(2).T) + " h_jac= " + str(
             #             self.__h_rss_jac[itx, :].round(3)))
 
-        self.__x_est[2] = z_est  # hold z_est constant for all iterations
+
 
         for itx in range(self.__tx_num):
             self.__p_mat = (self.__i_mat - np.dot(k_mat[:, itx].T, self.__h_rss_jac[itx, :])) \
                            * self.__p_mat
             # = (I-KH)*P
 
-        self.__x_est[2] = z_est
+        self.__x_est[2] = z_est  # hold z_est constant for all iterations
 
         '''determine z_Tx position'''
         # estimate intersection from xy position
@@ -888,7 +888,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         plt.xticks(np.arange(0, len(x_n_x), step=5))
         plt.grid()
 
-    plot_z = False
+    plot_z = True
     if plot_z:
         # plt.figure(figsize=(12, 12))
         plt.subplot(223)
@@ -910,7 +910,7 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
                      + str(np.round(x_est_fehler_ges_sdt))
                      + 'mm', xy=(xmin + 50, ymax - 350), xytext=(xmin + 50, ymax - 350))
 
-    plot_meas_sym = True
+    plot_meas_sym = False
     if plot_meas_sym:
         # plt.figure(figsize=(12, 12))
         plt.subplot(224)
@@ -955,7 +955,9 @@ def main(simulate_meas, x_start=None, measfile_rel_path=None, cal_param_file=Non
         # plt.axis([xmin, xmax, ymin, ymax])
         plt.xlabel('Messungsnummer')
         plt.ylabel('RSS')
-        plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_est_T3', 'RSS_true_T1', 'RSS_true_T2', 'RSS_true_T3'], loc=1)
+
+        # plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_est_T3', 'RSS_true_T1', 'RSS_true_T2', 'RSS_true_T3'], loc=1)
+        plt.legend(['RSS_est_T1', 'RSS_est_T2', 'RSS_true_T1', 'RSS_true_T2'], loc=1)
 
         plt.ylim(ymin - 2, ymax + 2)
         plt.xticks(np.arange(0, len(y_est_0) + 1, step=5))

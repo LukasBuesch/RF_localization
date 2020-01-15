@@ -58,7 +58,7 @@ class TxData(object):
             print('Check number of TX in TxData object!')
             exit(1)
 
-        self.__alpha = 0.0 * np.pi
+        self.__alpha = 0.22 * np.pi
 
     def get_freq_tx(self):
         return self.__freqtx
@@ -86,7 +86,7 @@ def waypoint_file_generating(filename=None):
 
 def waypoint_s_path_generating(filename=None):
     x0 = [250, 1500, 0]  # start point - upper left corner
-    xn = [750, 700, 0]  # end point - lower right corner
+    xn = [750, 1100, 0]  # end point - lower right corner
 
     dxdyda = [40, 40, 0]
 
@@ -182,12 +182,12 @@ if __name__ == '__main__':
     '''
     # waypoint_file_generating(filename='wp_test')  # if no input is selected file function active
 
-    # waypoint_s_path_generating(filename='wp_test')
+    waypoint_s_path_generating(filename='wp_test')
 
     simulate_field_measurement(tx_num=2, way_filename='wp_test', meas_filename='sy_test',
                                cal_param_file='Test_file_2', covariance_of=False)
 
-    position_estimation(x_start=[750, 700, 0], filename='sy_test'
+    position_estimation(x_start=[200, 1600, 100], filename='sy_test'
                         , cal_param_file='Test_file_2', sym_meas=True)
 
     # start_field_measurement()  # initialize start_RFEar with correct values
